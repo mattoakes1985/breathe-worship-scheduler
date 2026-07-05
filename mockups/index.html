@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breathe Worship Scheduler — Design Sign-off (PRD §10.5)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* Palette extracted programmatically from 'Breathe Worship Black Colour.png' — not guessed (§10.2) */
+  :root{
+    --blue:#2659A8; --teal:#1FB5AA; --green:#5AB946; --ink:#221F1F;
+    --grad:linear-gradient(135deg,#2659A8 0%,#1FB5AA 55%,#5AB946 100%);
+    --bg:#FAFAF8; --surface:#FFF; --raised:#F4F5F3; --border:#E5E7E3;
+    --t1:#221F1F; --t2:#5F5C5A; --t3:#8B8886;
+    --accent:#17948C; --accent-strong:#0F7A73; --accent-soft:#E2F5F3;
+    --info:#2659A8; --info-soft:#E8EEF9; --pos:#3F8C2E; --pos-soft:#EAF6E5;
+    --warn:#B07C10; --warn-soft:#FBF3DF; --dgr:#B03A2E; --dgr-soft:#F9E9E7;
+    --shadow:0 1px 3px rgba(34,31,31,.06),0 4px 16px rgba(34,31,31,.05);
+  }
+  .dark{
+    --bg:#161514; --surface:#1F1E1C; --raised:#282624; --border:#3A3835;
+    --t1:#F5F4F2; --t2:#B5B2AE; --t3:#807D79;
+    --accent:#2BC8BE; --accent-strong:#5FD9D1; --accent-soft:#123734;
+    --info:#6D96D8; --info-soft:#1B2A45; --pos:#7CC968; --pos-soft:#1E3318;
+    --warn:#D9A93E; --warn-soft:#3A2F14; --dgr:#D96A5E; --dgr-soft:#3D1F1B;
+    --shadow:0 1px 3px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box;margin:0}
+  body{font-family:Figtree,system-ui,sans-serif;background:#EDEDEA;color:#221F1F;padding:32px 16px 80px}
+  .dark body,body.dark{background:#0E0D0C;color:#F5F4F2}
+  h1,h2,h3,.display{font-family:'Bricolage Grotesque',sans-serif}
+  header.page{max-width:1200px;margin:0 auto 28px}
+  header.page h1{font-size:28px;font-weight:800}
+  header.page p{color:#5F5C5A;margin-top:6px;max-width:70ch}
+  body.dark header.page p{color:#B5B2AE}
+  .controls{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap}
+  .controls button{font:inherit;font-weight:600;border:1px solid #D5D5D0;background:#fff;border-radius:10px;padding:10px 16px;cursor:pointer}
+  body.dark .controls button{background:#1F1E1C;border-color:#3A3835;color:#F5F4F2}
+  .grid{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:36px}
+  .frame-wrap h2{font-size:15px;font-weight:700;margin-bottom:4px}
+  .frame-wrap .note{font-size:12px;color:#78756F;margin-bottom:10px;min-height:30px}
+  body.dark .frame-wrap .note{color:#9B9892}
+  .phone{width:320px;height:640px;border-radius:36px;border:8px solid var(--ink);overflow:hidden;background:var(--bg);box-shadow:0 20px 50px rgba(0,0,0,.25);position:relative;margin:0 auto}
+  .screen{position:absolute;inset:0;overflow-y:auto;background:var(--bg);color:var(--t1);font-size:13px}
+  /* shared app chrome */
+  .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--border);z-index:5}
+  .logo{font-family:'Bricolage Grotesque';font-weight:800;font-size:15px;letter-spacing:-.02em}
+  .logo b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .bell{position:relative;width:34px;height:34px;border-radius:10px;background:var(--raised);display:grid;place-items:center}
+  .bell::after{content:"2";position:absolute;top:-4px;right:-4px;background:var(--dgr);color:#fff;font-size:9px;font-weight:700;border-radius:99px;padding:1px 5px}
+  .tabbar{position:sticky;bottom:0;display:flex;background:var(--surface);border-top:1px solid var(--border);z-index:5}
+  .tabbar span{flex:1;text-align:center;padding:9px 0 12px;font-size:9px;font-weight:600;color:var(--t3)}
+  .tabbar span.on{color:var(--accent-strong)}
+  .tabbar i{display:block;font-style:normal;font-size:16px;margin-bottom:2px}
+  .body{padding:14px}
+  .h{font-family:'Bricolage Grotesque';font-weight:800;font-size:20px;letter-spacing:-.02em}
+  .sub{color:var(--t2);font-size:12px;margin-top:2px}
+  .eyebrow{font-family:'Bricolage Grotesque';font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin:16px 0 8px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:13px;margin-bottom:9px}
+  .row{display:flex;align-items:center;gap:10px}
+  .grow{flex:1;min-width:0}
+  .t{font-weight:600;font-size:13px} .s{color:var(--t2);font-size:11px} .f{color:var(--t3);font-size:10px}
+  .chip{display:inline-block;border-radius:99px;padding:3px 9px;font-size:10px;font-weight:700}
+  .c-pos{background:var(--pos-soft);color:var(--pos)} .c-info{background:var(--info-soft);color:var(--info)}
+  .c-warn{background:var(--warn-soft);color:var(--warn)} .c-dgr{background:var(--dgr-soft);color:var(--dgr)}
+  .c-acc{background:var(--accent-soft);color:var(--accent-strong)} .c-neu{background:var(--raised);color:var(--t2)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:6px;border-radius:11px;min-height:40px;font-weight:700;font-size:12px;border:1px solid transparent}
+  .b-pri{background:var(--accent);color:#fff} .dark .b-pri{color:var(--ink)}
+  .b-sec{background:var(--raised);color:var(--t1);border-color:var(--border)}
+  .b-dgr{background:var(--dgr);color:#fff}
+  .btnrow{display:flex;gap:8px;margin-top:10px} .btnrow .btn{flex:1}
+  .ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;font-size:15px;flex:none}
+  .seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-top:10px}
+  .seg .btn{min-height:38px}
+  .seg .off{background:var(--surface);border-color:var(--border);color:var(--t2)}
+  input,textarea{font:inherit;width:100%;border:1px solid var(--border);background:var(--surface);color:var(--t1);border-radius:11px;padding:11px;font-size:13px}
+  .gradbar{height:8px;border-radius:99px;background:var(--raised);overflow:hidden}
+  .gradbar>div{height:100%;background:var(--grad);border-radius:99px}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:12px;text-align:center}
+  .stat .n{font-family:'Bricolage Grotesque';font-weight:800;font-size:30px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .divlist>div{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+  .divlist>div:last-child{border-bottom:0}
+  .gradcard{background:var(--grad);color:#fff;border:0;border-radius:14px;padding:14px;margin-bottom:9px}
+  .empty{padding:26px 18px;text-align:center}
+  .empty .e-ico{font-size:30px;margin-bottom:8px;opacity:.45}
+  .login-logo{display:flex;flex-direction:column;align-items:center;margin:48px 0 20px}
+  /* Exact brand marks — the canonical logo files, not a recreation (§10.2, per Matt's sign-off condition) */
+  .logo-img{height:24px;object-fit:contain}
+  .login-logo img{width:190px;object-fit:contain}
+  .logo-dark{display:none!important}
+  .dark .logo-dark{display:block!important}
+  .dark .logo-light{display:none!important}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Breathe Worship Scheduler — design sign-off pass</h1>
+  <p>All 8 key screens (PRD §10.5), in the extracted brand palette (blue <code>#2659A8</code> → teal <code>#1FB5AA</code> → green <code>#5AB946</code>, ink <code>#221F1F</code>) with the proposed type pairing: <strong>Bricolage Grotesque</strong> (display) + <strong>Figtree</strong> (body). Toggle dark mode — it's designed, not inverted. Reference bar: Strava / Things 3 / Linear / Cash App, per §10.1.</p>
+  <div class="controls">
+    <button onclick="document.body.classList.toggle('dark');document.querySelectorAll('.phone').forEach(p=>p.classList.toggle('dark'))">Toggle light / dark</button>
+  </div>
+</header>
+
+<div class="grid">
+
+<!-- 1. LOGIN -->
+<div class="frame-wrap">
+  <h2>1 · Login / magic link</h2>
+  <p class="note">Invite-only messaging up front; magic link one tap away. Logo mark rendered in the brand gradient.</p>
+  <div class="phone"><div class="screen">
+    <div class="login-logo">
+      <img class="logo-light" src="../public/brand/breathe-black-colour.png" alt="Breathe Worship">
+      <img class="logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship">
+    </div>
+    <div class="body">
+      <div class="card" style="padding:16px">
+        <div class="h" style="font-size:17px">Welcome back</div>
+        <div class="sub" style="margin-bottom:12px">This app is invite-only. No account? Contact your team lead.</div>
+        <div class="s" style="font-weight:700;margin-bottom:4px;color:var(--t1)">Email</div>
+        <input value="matt@breathenewlife.church">
+        <div class="s" style="font-weight:700;margin:10px 0 4px;color:var(--t1)">Password</div>
+        <input type="password" value="••••••••••••">
+        <div class="btn b-pri" style="margin-top:14px">Sign in</div>
+        <div class="s" style="color:var(--accent-strong);font-weight:700;margin-top:12px">Email me a magic link instead</div>
+        <div class="f" style="margin-top:6px">Forgotten your password?</div>
+      </div>
+      <div class="f" style="text-align:center;margin-top:14px">Privacy &amp; data · Breathe New Life Church</div>
+    </div>
+  </div></div>
+</div>
+
+<!-- 2. VOLUNTEER DASHBOARD -->
+<div class="frame-wrap">
+  <h2>2 · Volunteer dashboard</h2>
+  <p class="note">Action-first: what's waiting on you, then what you're on, then your private stats teaser.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="h">Hi Matt</div><div class="sub">Here's what needs your attention.</div>
+      <div class="eyebrow">Waiting on you</div>
+      <div class="card row">
+        <span class="ico" style="background:var(--warn-soft)">📅</span>
+        <span class="grow"><span class="t">Sunday 10:30 Service</span><br><span class="s">Sun 19 Jul · 10:30 — are you available?</span></span>
+        <span class="f">›</span>
+      </div>
+      <div class="eyebrow">You're serving</div>
+      <div class="card">
+        <div class="row">
+          <span class="grow"><span class="t">Drums · Sunday 10:30 Service</span><br><span class="s">Sun 12 Jul · 10:30</span></span>
+          <span class="chip c-info">invited</span>
+        </div>
+        <div class="btnrow"><div class="btn b-pri">Confirm</div><div class="btn b-sec">Decline</div></div>
+      </div>
+      <div class="card row">
+        <span class="grow"><span class="t">Sound Engineer · Evening Worship</span><br><span class="s">Sun 26 Jul · 18:00</span></span>
+        <span class="chip c-pos">confirmed</span>
+      </div>
+      <div class="eyebrow">Your serving</div>
+      <div class="card row">
+        <span class="ico" style="background:var(--grad);color:#fff">🎉</span>
+        <span class="grow"><span class="t">You've served 1 of the 2 times you wanted to this month.</span><br><span class="f">See your serving story →</span></span>
+      </div>
+    </div>
+    <div class="tabbar"><span class="on"><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 3. AVAILABILITY -->
+<div class="frame-wrap">
+  <h2>3 · Availability response</h2>
+  <p class="note">One tap per service, colour-locked states, note + blockouts within reach. Finished in seconds.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="h">Availability</div><div class="sub">Tap once per service — change anytime until scheduling locks.</div></div><span class="chip c-neu">Blockouts</span></div>
+      <div class="card" style="margin-top:12px">
+        <div class="t">Sunday 10:30 Service</div><div class="s">Sun 19 Jul · 10:30</div>
+        <div class="seg">
+          <div class="btn" style="background:var(--pos);color:#fff">✓ Yes</div>
+          <div class="btn off">? Maybe</div>
+          <div class="btn off">✕ No</div>
+        </div>
+        <div class="f" style="color:var(--accent-strong);font-weight:700;margin-top:8px">+ Add a note</div>
+      </div>
+      <div class="card">
+        <div class="t">Evening Worship</div><div class="s">Sun 26 Jul · 18:00</div>
+        <div class="seg">
+          <div class="btn off">✓ Yes</div>
+          <div class="btn" style="background:var(--info);color:#fff">? Maybe</div>
+          <div class="btn off">✕ No</div>
+        </div>
+        <div class="f" style="color:var(--accent-strong);font-weight:700;margin-top:8px">Note: “Can do first half” (edit)</div>
+      </div>
+      <div class="eyebrow">Standing blockouts</div>
+      <div class="card row"><span class="grow s">Every Saturday · <span class="f">work</span></span><span class="f" style="color:var(--dgr);font-weight:700">Remove</span></div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span class="on"><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 4. SERVICE DETAIL -->
+<div class="frame-wrap">
+  <h2>4 · Service detail (WOR-4)</h2>
+  <p class="note">Rota, song set and running order on one screen — nobody hunts through WhatsApp for the set list.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="h" style="font-size:17px">Sunday 10:30 Service</div><div class="sub">Sun 12 Jul · 10:30–12:00 · Main Hall</div></div><span class="chip c-pos">published</span></div>
+      <div class="eyebrow">Who's serving</div>
+      <div class="card divlist" style="padding:4px 13px">
+        <div><span class="s">Worship Leader</span><span class="t">Sarah J</span></div>
+        <div><span class="s">Drums</span><span class="t">Matt O</span></div>
+        <div><span class="s">Bass</span><span class="t">Dan K</span></div>
+        <div><span class="s">Sound Engineer</span><span class="t">Priya M</span></div>
+      </div>
+      <div class="eyebrow">Song set</div>
+      <div class="card divlist" style="padding:4px 13px">
+        <div><span class="s"><b style="color:var(--t1)">1 · Firm Foundation</b><br>Cody Carnes</span><span class="chip c-acc">Key B</span></div>
+        <div><span class="s"><b style="color:var(--t1)">2 · What A Beautiful Name</b><br>Hillsong</span><span class="chip c-acc">Key D</span></div>
+        <div><span class="s"><b style="color:var(--t1)">3 · Goodness of God</b><br>Bethel</span><span class="chip c-acc">Key A♭</span></div>
+      </div>
+      <div class="eyebrow">Running order · ~85 min</div>
+      <div class="card divlist" style="padding:4px 13px">
+        <div><span class="s"><span class="chip c-acc">song</span> Firm Foundation</span><span class="f">6 min</span></div>
+        <div><span class="s"><span class="chip c-neu">announcement</span> Welcome &amp; notices</span><span class="f">5 min</span></div>
+        <div><span class="s"><span class="chip c-neu">sermon</span> “Breath of Life” pt 2</span><span class="f">35 min</span></div>
+        <div><span class="s"><span class="chip c-neu">communion</span> Communion</span><span class="f">10 min</span></div>
+      </div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span class="on"><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 5. ROTA BUILDER -->
+<div class="frame-wrap">
+  <h2>5 · Rota builder (Team Lead)</h2>
+  <p class="note">Auto-suggest panel with plain-English reasons; soft-cap volunteers flagged, never hidden. Lead accepts each slot.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="h" style="font-size:17px">Sunday 10:30 Service</div><div class="sub">Sun 19 Jul · 10:30</div></div><span class="chip c-info">scheduling open</span></div>
+      <div class="btnrow" style="margin-top:10px"><div class="btn b-pri">✨ Auto-suggest rota</div><div class="btn b-sec">Publish</div></div>
+      <div class="card" style="background:var(--accent-soft);border-color:transparent;margin-top:10px">
+        <div class="t" style="margin-bottom:8px">Suggested rota</div>
+        <div class="card row" style="margin-bottom:7px">
+          <span class="grow"><span class="t">Drums: Jon P</span><br><span class="f">Available (yes) · Last served this role 28 days ago</span></span>
+          <span class="chip c-acc" style="background:var(--accent);color:#fff">Accept</span>
+        </div>
+        <div class="card row" style="margin-bottom:0">
+          <span class="grow"><span class="t">Vocals: Grace T <span class="chip c-warn">at their preferred limit</span></span><br><span class="f">Available (yes) · Only candidate — assigning is a logged override</span></span>
+          <span class="chip c-acc" style="background:var(--accent);color:#fff">Accept</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="t">Worship Leader <span class="f">1/1</span></span></div>
+        <div class="row" style="margin-top:6px"><span class="grow s"><b style="color:var(--t1)">Sarah J</b></span><span class="chip c-pos">confirmed</span></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="grow t">Sound Engineer <span class="f">0/1</span></span><span class="chip c-neu">Assign</span></div>
+        <div class="f" style="margin-top:4px">Nobody assigned yet.</div>
+      </div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 6. SWAP BOARD -->
+<div class="frame-wrap">
+  <h2>6 · Swap board</h2>
+  <p class="note">Claim in one tap; leads approve. A designed empty state exists too — this shows the busy state.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="h">Swap board</div><div class="sub">Can't make it? Post your slot — someone eligible picks it up.</div></div><span class="chip c-acc" style="background:var(--accent);color:#fff">Post a swap</span></div>
+      <div class="card" style="margin-top:12px">
+        <div class="row"><span class="grow"><span class="t">Drums · Sunday 10:30 Service</span><br><span class="s">Sun 19 Jul · posted by Jon P</span></span><span class="chip c-warn">open</span></div>
+        <div class="btnrow"><div class="btn b-pri">I can cover this</div></div>
+      </div>
+      <div class="card">
+        <div class="row"><span class="grow"><span class="t">Vocals · Evening Worship</span><br><span class="s">Sun 26 Jul · posted by you</span></span><span class="chip c-info">claimed</span></div>
+        <div class="f" style="margin-top:6px">Grace T offered to cover — waiting for Team Lead approval.</div>
+      </div>
+      <div class="card empty">
+        <div class="e-ico">⇄</div>
+        <div class="t">That's everything</div>
+        <div class="s" style="margin-top:4px">No other slots need cover right now.</div>
+      </div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span class="on"><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 7. SONG LIBRARY -->
+<div class="frame-wrap">
+  <h2>7 · Song library</h2>
+  <p class="note">Search-first, key chips in the accent, tags as quiet metadata. Archive keeps history intact.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="row"><div class="grow"><div class="h">Song library</div><div class="sub">42 songs</div></div><span class="chip c-acc" style="background:var(--accent);color:#fff">+ Add song</span></div>
+      <input placeholder="🔎  Search title, artist or tag…" style="margin-top:12px">
+      <div class="card divlist" style="padding:4px 13px;margin-top:10px">
+        <div><span class="s"><b style="color:var(--t1)">Firm Foundation (He Won't)</b><br>Cody Carnes · 72 bpm · anthem</span><span class="chip c-acc">Key B</span></div>
+        <div><span class="s"><b style="color:var(--t1)">Goodness of God</b><br>Bethel Music · 63 bpm · slow</span><span class="chip c-acc">Key A♭</span></div>
+        <div><span class="s"><b style="color:var(--t1)">Graves Into Gardens</b><br>Elevation · 72 bpm</span><span class="chip c-acc">Key G</span></div>
+        <div><span class="s"><b style="color:var(--t1)">Great Are You Lord</b><br>All Sons &amp; Daughters · communion</span><span class="chip c-acc">Key A</span></div>
+        <div><span class="s"><b style="color:var(--t1)">Holy Forever</b><br>Chris Tomlin · 66 bpm</span><span class="chip c-acc">Key D</span></div>
+        <div><span class="s"><b style="color:var(--t1)">What A Beautiful Name</b><br>Hillsong Worship · slow</span><span class="chip c-acc">Key D</span></div>
+      </div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+<!-- 8. PERSONAL STATS -->
+<div class="frame-wrap">
+  <h2>8 · Personal stats (the Strava screen)</h2>
+  <p class="note">Gradient hero numbers, milestone moment, permission-to-rest copy (STAT-4). Private — never a leaderboard.</p>
+  <div class="phone"><div class="screen">
+    <div class="topbar"><span><img class="logo-img logo-light" src="../public/brand/breathe-black-colour-cropped.png" alt="Breathe Worship"><img class="logo-img logo-dark" src="../public/brand/breathe-all-white.png" alt="Breathe Worship"></span><span class="bell">🔔</span></div>
+    <div class="body">
+      <div class="h">Your serving story</div>
+      <div class="sub">Just for you — never compared with anyone else.</div>
+      <div class="gradcard" style="margin-top:12px">
+        <div class="row"><span style="font-size:22px">🏅</span><span class="grow"><b class="display" style="font-size:15px">Milestone!</b><br><span style="font-size:12px;opacity:.95">That's your 10th time serving with Breathe Worship — thank you for showing up again and again.</span></span></div>
+      </div>
+      <div class="card" style="background:var(--accent-soft);border-color:transparent">
+        <div class="row"><span style="font-size:17px">🤝</span><span class="s" style="color:var(--accent-strong);font-weight:700">You've served as often as you wanted to this month — enjoy being in the congregation this week.</span></div>
+      </div>
+      <div class="statgrid">
+        <div class="stat"><div class="f">THIS MONTH</div><div class="n">2</div><div class="f">of 2 you wanted</div></div>
+        <div class="stat"><div class="f">THIS YEAR</div><div class="n">14</div></div>
+        <div class="stat"><div class="f">🔥 CURRENT STREAK</div><div class="n">6</div><div class="f">services without a hitch</div></div>
+        <div class="stat"><div class="f">ALL TIME</div><div class="n">10</div><div class="f">since Mar 2026</div></div>
+      </div>
+      <div class="card" style="margin-top:9px">
+        <div class="t" style="margin-bottom:7px">💚 Reliability</div>
+        <div class="gradbar"><div style="width:95%"></div></div>
+        <div class="s" style="margin-top:7px">You've followed through on <b style="color:var(--t1)">95%</b> of your confirmed services. Your team can count on you — and it shows.</div>
+      </div>
+      <div class="f" style="text-align:center;padding:6px 16px 14px">Visible only to you and your team leads. Serving less is never a failure — your stated rhythm is the measure, not anyone else's.</div>
+    </div>
+    <div class="tabbar"><span><i>⌂</i>Home</span><span><i>📅</i>Availability</span><span><i>🗓</i>Schedule</span><span><i>⇄</i>Swaps</span><span class="on"><i>📈</i>My stats</span></div>
+  </div></div>
+</div>
+
+</div>
+</body>
+</html>

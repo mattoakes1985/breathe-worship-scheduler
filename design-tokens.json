@@ -1,0 +1,84 @@
+{
+  "$description": "Breathe Worship Scheduler design tokens — Phase 0 contract artifact (PRD §18.2, §10.2). Brand anchors extracted programmatically from 'Breathe Worship Black Colour.png' on 2026-07-05; tints/shades derived from those anchors. Do not edit outside Agent 2 ownership.",
+  "brand": {
+    "ink": "#221F1F",
+    "blue": "#2659A8",
+    "teal": "#1FB5AA",
+    "green": "#5AB946",
+    "gradient": "linear-gradient(135deg, #2659A8 0%, #1FB5AA 55%, #5AB946 100%)"
+  },
+  "color": {
+    "light": {
+      "background": "#FAFAF8",
+      "surface": "#FFFFFF",
+      "surfaceRaised": "#F4F5F3",
+      "border": "#E5E7E3",
+      "textPrimary": "#221F1F",
+      "textSecondary": "#5F5C5A",
+      "textTertiary": "#8B8886",
+      "accent": "#17948C",
+      "accentStrong": "#0F7A73",
+      "accentSoft": "#E2F5F3",
+      "info": "#2659A8",
+      "infoSoft": "#E8EEF9",
+      "positive": "#3F8C2E",
+      "positiveSoft": "#EAF6E5",
+      "warning": "#B07C10",
+      "warningSoft": "#FBF3DF",
+      "danger": "#B03A2E",
+      "dangerSoft": "#F9E9E7"
+    },
+    "dark": {
+      "background": "#161514",
+      "surface": "#1F1E1C",
+      "surfaceRaised": "#282624",
+      "border": "#3A3835",
+      "textPrimary": "#F5F4F2",
+      "textSecondary": "#B5B2AE",
+      "textTertiary": "#807D79",
+      "accent": "#2BC8BE",
+      "accentStrong": "#5FD9D1",
+      "accentSoft": "#123734",
+      "info": "#6D96D8",
+      "infoSoft": "#1B2A45",
+      "positive": "#7CC968",
+      "positiveSoft": "#1E3318",
+      "warning": "#D9A93E",
+      "warningSoft": "#3A2F14",
+      "danger": "#D96A5E",
+      "dangerSoft": "#3D1F1B"
+    }
+  },
+  "typography": {
+    "display": {
+      "family": "'Bricolage Grotesque', 'Sora', system-ui, sans-serif",
+      "usage": "headings, hero numbers, celebration moments (§10.2 characterful display)"
+    },
+    "body": {
+      "family": "'Figtree', 'Segoe UI', system-ui, sans-serif",
+      "usage": "body text, forms, rota tables, data-dense UI"
+    },
+    "scale": {
+      "xs": "0.75rem",
+      "sm": "0.875rem",
+      "base": "1rem",
+      "lg": "1.125rem",
+      "xl": "1.375rem",
+      "2xl": "1.75rem",
+      "3xl": "2.25rem",
+      "hero": "3rem"
+    }
+  },
+  "spacing": { "unit": 4, "rhythm": [4, 8, 12, 16, 20, 24, 32, 40, 56, 80] },
+  "radius": { "sm": "8px", "md": "12px", "lg": "16px", "pill": "999px" },
+  "shadow": {
+    "card": "0 1px 3px rgba(34,31,31,0.06), 0 4px 16px rgba(34,31,31,0.05)",
+    "raised": "0 4px 12px rgba(34,31,31,0.10), 0 12px 32px rgba(34,31,31,0.08)"
+  },
+  "touchTarget": { "min": "44px" },
+  "motion": {
+    "fast": "150ms cubic-bezier(0.2, 0, 0, 1)",
+    "base": "240ms cubic-bezier(0.2, 0, 0, 1)",
+    "celebrate": "600ms cubic-bezier(0.34, 1.56, 0.64, 1)"
+  }
+}

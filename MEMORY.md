@@ -89,6 +89,55 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **PRD reference:** n/a (meta — this is about the file, not the spec content)
 - **Status:** Confirmed
 
+## [2026-07-05] Production Supabase project created in eu-west-2 (London), free tier
+- **Decision:** Live project `breathe-worship-scheduler` (ref `mlwkyhlzggqkkioxucxj`) on Matt's Osprey Ventures org, eu-west-2, £0/mo.
+- **Why:** Matt chose "create live project now" over repo-only migrations; London region matches §8.3's UK data-residency framing; free tier matches D4.
+- **Made by:** Matt (choice), executed by Fable 5 (single-agent serial build per CLAUDE.md §7)
+- **PRD reference:** §3 (D4), §8.3, §9.4
+- **Status:** Confirmed
+
+## [2026-07-05] HTML mockups accepted as the §10.5 "Figma or equivalent"
+- **Decision:** The design-gate deliverable is `mockups/index.html` — all 8 key screens, hi-fi, light+dark, real extracted palette — reviewed in a browser instead of Figma.
+- **Why:** The building agent can't produce Figma files; Matt explicitly accepted HTML as equivalent. The gate itself (explicit human "yes") is unchanged.
+- **Made by:** Matt
+- **PRD reference:** §10.5
+- **Status:** Confirmed
+
+## [2026-07-05] Brand palette extracted; typography pairing chosen
+- **Decision:** Anchors pulled programmatically from `Breathe Worship Black Colour.png`: ink `#221F1F`, gradient blue `#2659A8` → teal `#1FB5AA` → green `#5AB946`. Derived light/dark palettes live in `design-tokens.json`. Type pairing (PRD left open): Bricolage Grotesque (display) + Figtree (body), both Google Fonts.
+- **Why:** §10.2 forbids guessed hex values; the pairing echoes the wordmark's geometric character while keeping data-dense UI legible. Subject to the §10.5 gate like everything visual.
+- **Made by:** Fable 5 (Agent 2 role), pending Matt's design sign-off
+- **PRD reference:** §10.2, §15
+- **Status:** Confirmed (extraction) / Confirmed (typography — via design sign-off below)
+
+## [2026-07-05] §10.5 design gate: APPROVED, with one condition
+- **Decision:** Matt approved the 8-screen mockup pass (`mockups/index.html`) — palette, typography pairing, light+dark, layout direction. One condition: use the **exact logo files** everywhere, never a recreated/approximated mark. Mockups corrected same day; the production app already used the real files.
+- **Why:** §10.2 designates the logo files as canonical; the mockups' CSS-drawn mark violated that.
+- **Made by:** Matt
+- **PRD reference:** §10.5, §10.2
+- **Status:** Confirmed — the design gate is now PASSED; final visual polish is unblocked (§18.4 Phase 2 → 3)
+
+## [2026-07-05] Privileged mutations via SECURITY DEFINER RPCs rather than Edge Functions
+- **Decision:** Swap claim/approve, assignment respond, service generation, GDPR export/erasure, and stats run as Postgres SECURITY DEFINER functions with internal auth checks; the only Edge Function is `invite-volunteer` (needs the Auth admin API). Auto-suggest stays a pure client-side engine (`src/lib/scheduling-engine`) because it only reads data the Lead can already read and every acceptance is an explicit, RLS-checked, audit-logged write.
+- **Why:** §9.2 permits "Edge Functions **or** RLS-guarded RPC functions"; RPCs give atomicity (e.g. swap double-claim row lock) with less deploy surface. §9.3 itself places the engine in `src/lib/`.
+- **Made by:** Fable 5 (Agent 1 role)
+- **PRD reference:** §9.1–9.3, SWAP-2, SCHED-2
+- **Status:** Confirmed
+
+## [2026-07-05] Security hardening migration after Supabase advisor lints
+- **Decision:** Migration `00004`: pinned `search_path` on `set_updated_at`, replaced an always-true `WITH CHECK` on the leads-manage-swaps policy, revoked API `EXECUTE` on trigger/internal functions from all roles and on user-facing RPCs from `anon`, and revoked default function EXECUTE for future functions.
+- **Why:** `get_advisors(security)` flagged all of these after the initial migrations; fixed same-day rather than left as debt.
+- **Made by:** Fable 5 (Agent 1 role)
+- **PRD reference:** §8.3
+- **Status:** Confirmed
+
+## [2026-07-05] Build-environment limitation: npm registry blocked in the build sandbox
+- **Decision:** `npm install`/`vitest`/`vite build` could not run in the agent's sandbox (registry.npmjs.org returns 403). Verification (typecheck, unit tests, build) transfers to Matt's machine and the committed GitHub Actions CI. Code shipped is complete but **not yet machine-verified** — treat the first local `npm run lint && npm test && npm run build` as a required step, not optional.
+- **Why:** Honest failure mode per CLAUDE.md §4 staleness philosophy: visibly blocked beats quietly unverified.
+- **Made by:** Fable 5
+- **PRD reference:** §13, §14
+- **Status:** Superseded — first verify run went green on Matt's machine 2026-07-05 (lint clean, 16/16 tests, build OK) after 30 type-level fixes; see AGENTS.md 22:45 resolution
+
 ## [2026-07-05] Multi-agent execution plan added
 - **Decision:** PRD §18 defines a 6-agent roster (Backend/Schema, Design System, three frontend agents split by feature area, QA/DevOps), three shared contract artifacts, and a "lock the contract, then parallelize" rule as the core safeguard against agents colliding.
 - **Why:** Matt requested the PRD be optimized for a multi-agent AI build team rather than assuming one agent builds serially.

@@ -1,0 +1,26 @@
+# CI — PRD §14: lint, unit tests, production build on every PR; block merge on failure.
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run lint
+      - name: Unit tests (scheduling engine)
+        run: npm test
+      - name: Production build
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: placeholder

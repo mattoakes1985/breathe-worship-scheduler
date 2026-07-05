@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens (design-tokens.json) as CSS variables — light + dark built
+   together, per PRD §10.2. RGB triplets so Tailwind can apply alpha. */
+:root {
+  --c-bg: 250 250 248;
+  --c-surface: 255 255 255;
+  --c-raised: 244 245 243;
+  --c-border: 229 231 227;
+  --c-text-1: 34 31 31;
+  --c-text-2: 95 92 90;
+  --c-text-3: 139 136 134;
+  --c-accent: 23 148 140;
+  --c-accent-strong: 15 122 115;
+  --c-accent-soft: 226 245 243;
+  --c-info: 38 89 168;
+  --c-info-soft: 232 238 249;
+  --c-positive: 63 140 46;
+  --c-positive-soft: 234 246 229;
+  --c-warning: 176 124 16;
+  --c-warning-soft: 251 243 223;
+  --c-danger: 176 58 46;
+  --c-danger-soft: 249 233 231;
+}
+
+.dark {
+  --c-bg: 22 21 20;
+  --c-surface: 31 30 28;
+  --c-raised: 40 38 36;
+  --c-border: 58 56 53;
+  --c-text-1: 245 244 242;
+  --c-text-2: 181 178 174;
+  --c-text-3: 128 125 121;
+  --c-accent: 43 200 190;
+  --c-accent-strong: 95 217 209;
+  --c-accent-soft: 18 55 52;
+  --c-info: 109 150 216;
+  --c-info-soft: 27 42 69;
+  --c-positive: 124 201 104;
+  --c-positive-soft: 30 51 24;
+  --c-warning: 217 169 62;
+  --c-warning-soft: 58 47 20;
+  --c-danger: 217 106 94;
+  --c-danger-soft: 61 31 27;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-bg text-ink font-body antialiased;
+    font-size: 16px;
+  }
+  h1, h2, h3 {
+    @apply font-display;
+  }
+  /* Touch targets ≥ 44px (PRD §8.2) */
+  button, a[role="button"], input[type="checkbox"] + label {
+    min-height: 44px;
+  }
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-line rounded-lg shadow-card;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 font-semibold text-sm
+      transition-colors duration-150 disabled:opacity-50 disabled:pointer-events-none
+      min-h-[44px] select-none;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-white hover:bg-accent-strong dark:text-brand-ink;
+  }
+  .btn-secondary {
+    @apply btn bg-raised text-ink border border-line hover:bg-line/50;
+  }
+  .btn-ghost {
+    @apply btn text-soft hover:bg-raised;
+  }
+  .btn-danger {
+    @apply btn bg-danger text-white hover:opacity-90;
+  }
+  .input {
+    @apply w-full rounded-md border border-line bg-surface px-3.5 text-ink placeholder-faint
+      min-h-[44px] text-base focus:border-accent focus:ring-1 focus:ring-accent outline-none;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
