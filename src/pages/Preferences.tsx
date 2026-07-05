@@ -23,6 +23,29 @@ export default function Preferences() {
     },
   });
 
+  const { data: myRoles } = useQuery({
+    queryKey: ["my-role-ranks", uid],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("role_eligibility")
+        .select("role_id, preference_rank, roles(name)")
+        .eq("profile_id", uid)
+        .eq("is_active", true);
+      return (data ?? []).sort((a, b) => a.preference_rank - b.preference_rank);
+    },
+  });
+
+  const setRank = useMutation({
+    mutationFn: async (args: { roleId: string; rank: number }) => {
+      const { error } = await supabase.rpc("set_my_role_preference", {
+        p_role_id: args.roleId,
+        p_rank: args.rank,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-role-ranks"] }),
+  });
+
   const [hasCap, setHasCap] = useState(false);
   const [max, setMax] = useState(2);
   const [period, setPeriod] = useState<"week" | "month">("month");
@@ -124,6 +147,35 @@ export default function Preferences() {
           </Field>
         </div>
       </Card>
+
+      {(myRoles ?? []).length > 0 && (
+        <Card>
+          <h2 className="font-display font-bold mb-1">Instrument preference</h2>
+          <p className="text-soft text-sm mb-4">
+            Rank the roles you play — 1 is your first choice. The rota builder prefers people on
+            their favourite instrument before falling back to their other roles.
+          </p>
+          <ul className="space-y-2">
+            {(myRoles ?? []).map((r) => (
+              <li key={r.role_id} className="flex items-center justify-between gap-3">
+                <span className="font-semibold text-sm">{(r.roles as { name: string } | null)?.name}</span>
+                <select
+                  className="input !min-h-[40px] !w-24"
+                  value={r.preference_rank}
+                  aria-label={`Preference rank for ${(r.roles as { name: string } | null)?.name}`}
+                  onChange={(e) => setRank.mutate({ roleId: r.role_id, rank: Number(e.target.value) })}
+                >
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n === 1 ? "1st choice" : `#${n}`}
+                    </option>
+                  ))}
+                </select>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card>
         <h2 className="font-display font-bold mb-4">Your details</h2>

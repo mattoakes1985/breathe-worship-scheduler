@@ -409,6 +409,7 @@ export type Database = {
         Row: {
           id: string
           is_active: boolean
+          preference_rank: number
           proficiency: string
           profile_id: string
           role_id: string
@@ -416,6 +417,7 @@ export type Database = {
         Insert: {
           id?: string
           is_active?: boolean
+          preference_rank?: number
           proficiency?: string
           profile_id: string
           role_id: string
@@ -423,6 +425,7 @@ export type Database = {
         Update: {
           id?: string
           is_active?: boolean
+          preference_rank?: number
           proficiency?: string
           profile_id?: string
           role_id?: string
@@ -657,6 +660,7 @@ export type Database = {
           created_by: string | null
           end_time: string | null
           id: string
+          linked_service_id: string | null
           location: string | null
           notes: string | null
           scheduling_locked: boolean
@@ -675,6 +679,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           id?: string
+          linked_service_id?: string | null
           location?: string | null
           notes?: string | null
           scheduling_locked?: boolean
@@ -693,6 +698,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           id?: string
+          linked_service_id?: string | null
           location?: string | null
           notes?: string | null
           scheduling_locked?: boolean
@@ -784,9 +790,11 @@ export type Database = {
           duration_seconds: number | null
           id: string
           is_active: boolean
+          male_key: string | null
           notes: string | null
           tags: string[] | null
           tempo_bpm: number | null
+          time_signature: string | null
           title: string
         }
         Insert: {
@@ -799,9 +807,11 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           is_active?: boolean
+          male_key?: string | null
           notes?: string | null
           tags?: string[] | null
           tempo_bpm?: number | null
+          time_signature?: string | null
           title: string
         }
         Update: {
@@ -814,9 +824,11 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           is_active?: boolean
+          male_key?: string | null
           notes?: string | null
           tags?: string[] | null
           tempo_bpm?: number | null
+          time_signature?: string | null
           title?: string
         }
         Relationships: []
@@ -1056,6 +1068,10 @@ export type Database = {
       }
       resolve_swap: {
         Args: { p_approve: boolean; p_swap_id: string }
+        Returns: undefined
+      }
+      set_my_role_preference: {
+        Args: { p_role_id: string; p_rank: number }
         Returns: undefined
       }
       respond_to_assignment: {

@@ -22,10 +22,12 @@ export default function Availability() {
     queryKey: ["availability", uid],
     queryFn: async () => {
       const [services, responses, blockouts] = await Promise.all([
+        // Change request #4: show every upcoming service you can see, so your
+        // past answers stay visible even after scheduling locks.
         supabase
           .from("services")
-          .select("id,title,service_date,start_time,scheduling_locked")
-          .eq("status", "availability_open")
+          .select("id,title,service_date,start_time,status,scheduling_locked,availability_locked")
+          .in("status", ["availability_open", "scheduling_open", "published"])
           .gte("service_date", todayISO())
           .order("service_date"),
         supabase.from("availability_responses").select("*").eq("profile_id", uid),
@@ -105,37 +107,55 @@ export default function Availability() {
         <div className="space-y-3">
           {data!.services.map((s) => {
             const mine = data!.responses.get(s.id);
+            const editable = s.status === "availability_open" && !s.scheduling_locked && !s.availability_locked;
             return (
               <Card key={s.id}>
-                <p className="font-semibold">{s.title}</p>
-                <p className="text-soft text-sm mb-3">
-                  {formatDate(s.service_date)} · {formatTime(s.start_time)}
-                </p>
-                <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={`Availability for ${s.title}`}>
-                  {options.map(({ value, label, icon: Icon, active }) => (
-                    <button
-                      key={value}
-                      role="radio"
-                      aria-checked={mine?.response === value}
-                      className={`btn border ${
-                        mine?.response === value ? active : "bg-surface border-line text-soft hover:bg-raised"
-                      }`}
-                      disabled={s.scheduling_locked || respond.isPending}
-                      onClick={() => respond.mutate({ serviceId: s.id, response: value, note: mine?.note ?? undefined })}
-                    >
-                      <Icon size={16} /> {label}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold">{s.title}</p>
+                    <p className="text-soft text-sm mb-3">
+                      {formatDate(s.service_date)} · {formatTime(s.start_time)}
+                    </p>
+                  </div>
+                  {!editable && <span className="chip bg-raised text-soft">🔒 locked</span>}
                 </div>
-                <button
-                  className="text-accent-strong text-xs font-semibold mt-2"
-                  onClick={() => {
-                    setNoteFor(s.id);
-                    setNote(mine?.note ?? "");
-                  }}
-                >
-                  {mine?.note ? `Note: ${mine.note} (edit)` : "+ Add a note"}
-                </button>
+                {editable ? (
+                  <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label={`Availability for ${s.title}`}>
+                    {options.map(({ value, label, icon: Icon, active }) => (
+                      <button
+                        key={value}
+                        role="radio"
+                        aria-checked={mine?.response === value}
+                        className={`btn border ${
+                          mine?.response === value ? active : "bg-surface border-line text-soft hover:bg-raised"
+                        }`}
+                        disabled={respond.isPending}
+                        onClick={() => respond.mutate({ serviceId: s.id, response: value, note: mine?.note ?? undefined })}
+                      >
+                        <Icon size={16} /> {label}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-soft">
+                    You said{" "}
+                    <b className={mine?.response === "yes" ? "text-positive" : mine?.response === "no" ? "text-danger" : "text-info"}>
+                      {mine?.response ?? "nothing"}
+                    </b>
+                    {mine?.note && <> · “{mine.note}”</>} — this can't be changed now, but it's kept here for your reference.
+                  </p>
+                )}
+                {editable && (
+                  <button
+                    className="text-accent-strong text-xs font-semibold mt-2"
+                    onClick={() => {
+                      setNoteFor(s.id);
+                      setNote(mine?.note ?? "");
+                    }}
+                  >
+                    {mine?.note ? `Note: ${mine.note} (edit)` : "+ Add a note"}
+                  </button>
+                )}
               </Card>
             );
           })}

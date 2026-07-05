@@ -102,8 +102,9 @@ function addMinutes(hhmm: string, mins: number): string {
  * Rank candidates for one role slot. Ordering (SCHED-2 + SCHED-7):
  *  1. under-preference-cap before over-cap
  *  2. "yes" availability before "maybe"
- *  3. longest-ago in this role first (fairness)
- *  4. deterministic name tie-break
+ *  3. the volunteer's own instrument preference (rank 1 = first-choice role)
+ *  4. longest-ago in this role first (fairness)
+ *  5. deterministic name tie-break
  * Volunteers who said "no", didn't respond, are blocked out, or aren't
  * eligible are excluded entirely (SCHED-1 default; Lead can override in UI).
  */
@@ -129,17 +130,22 @@ export function rankCandidates(
       input.serviceDate
     );
     const recency = daysSinceLastServed(input.history, v.profileId, roleId, input.serviceDate);
+    const instrumentRank = Math.min(Math.max(v.rolePreferenceRank?.[roleId] ?? 1, 1), 10);
     const reasons: string[] = [];
     reasons.push(response === "yes" ? "Available (yes)" : "Available (maybe)");
+    if (instrumentRank === 1) reasons.push("Their first-choice instrument");
+    else reasons.push(`Their #${instrumentRank} instrument choice`);
     reasons.push(
       recency === Infinity ? "Never served this role" : `Last served this role ${recency} days ago`
     );
     if (overCap) reasons.push("At their preferred serving limit for this period");
 
-    // Composite score, larger = better. Cap dominates, then availability, then recency.
+    // Composite score, larger = better. Tiers: cap ≫ availability ≫ own
+    // instrument preference ≫ recency. Each tier outweighs everything below it.
     const score =
-      (overCap ? 0 : 1_000_000) +
-      (response === "yes" ? 100_000 : 0) +
+      (overCap ? 0 : 1_000_000_000) +
+      (response === "yes" ? 100_000_000 : 0) +
+      (10 - instrumentRank) * 1_000_000 +
       Math.min(recency, 99_999);
 
     out.push({ profileId: v.profileId, name: v.name, score, overPreferenceCap: overCap, reasons });

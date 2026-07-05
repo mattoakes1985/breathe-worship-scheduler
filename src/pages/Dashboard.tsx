@@ -76,6 +76,34 @@ export default function Dashboard() {
         subtitle="Here's what needs your attention."
       />
 
+      {/* Attention banner: the one thing to do right now, impossible to miss */}
+      {(() => {
+        const pendingCount = data!.pendingAvailability.length;
+        const toConfirm = data!.assignments.filter((a) => a.status === "invited").length;
+        if (pendingCount === 0 && toConfirm === 0) return null;
+        return (
+          <div className="rounded-lg bg-brand-gradient p-[1.5px]">
+            <div className="rounded-[14px] bg-surface px-4 py-3.5 flex items-center gap-3">
+              <span className="font-display font-extrabold text-3xl bg-brand-gradient bg-clip-text text-transparent">
+                {pendingCount + toConfirm}
+              </span>
+              <div className="flex-1 text-sm font-semibold">
+                {pendingCount > 0 && (
+                  <Link to="/availability" className="block hover:underline">
+                    {pendingCount} upcoming {pendingCount === 1 ? "service needs" : "services need"} your availability →
+                  </Link>
+                )}
+                {toConfirm > 0 && (
+                  <span className="block text-soft">
+                    {toConfirm} {toConfirm === 1 ? "assignment" : "assignments"} below waiting for you to confirm
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Pending availability first — the action volunteers do most */}
       {data!.pendingAvailability.length > 0 && (
         <section aria-label="Pending availability">

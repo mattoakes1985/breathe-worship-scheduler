@@ -3,11 +3,14 @@ import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Clock, ListMusic, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 import { Badge, Card, ErrorState, PageHeader, Spinner, statusBadgeTone } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/format";
+import ServicePlanner from "@/features/worship-planning/ServicePlanner";
 
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
+  const { isTeamLead, isAdmin } = useAuth();
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["service-detail", id],
@@ -147,6 +150,8 @@ export default function ServiceDetail() {
           </Card>
         )}
       </section>
+
+      {(isTeamLead || isAdmin) && <ServicePlanner serviceId={id!} />}
     </div>
   );
 }

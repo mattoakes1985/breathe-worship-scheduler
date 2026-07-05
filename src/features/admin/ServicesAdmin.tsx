@@ -12,6 +12,8 @@ export default function ServicesAdmin() {
   const qc = useQueryClient();
   const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkAction, setBulkAction] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["admin-services", showArchived],
@@ -47,6 +49,28 @@ export default function ServicesAdmin() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["admin-services"] }),
   });
 
+  // Change request #1: select multiple services, apply one status/lock change
+  const bulkPatch = useMutation({
+    mutationFn: async (p: TablesUpdate<"services">) => {
+      const { error } = await supabase.from("services").update(p).in("id", [...selected]);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["admin-services"] });
+      setSelected(new Set());
+      setBulkAction("");
+    },
+  });
+
+  const BULK_ACTIONS: Record<string, TablesUpdate<"services">> = {
+    open_availability: { status: "availability_open", availability_locked: false },
+    lock_availability: { availability_locked: true },
+    open_scheduling: { status: "scheduling_open" },
+    publish: { status: "published", scheduling_locked: true },
+    unlock_scheduling: { scheduling_locked: false, status: "scheduling_open" },
+    cancel: { status: "cancelled" },
+  };
+
   if (isLoading) return <Spinner label="Loading services…" />;
 
   return (
@@ -60,14 +84,49 @@ export default function ServicesAdmin() {
           </button>
         }
       />
-      <label className="flex items-center gap-2 text-sm text-soft min-h-[44px]">
-        <input type="checkbox" className="w-4 h-4" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
-        Show archived
-      </label>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-2 text-sm text-soft min-h-[44px]">
+          <input type="checkbox" className="w-4 h-4" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          Show archived
+        </label>
+        {selected.size > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">{selected.size} selected</span>
+            <select className="input !min-h-[40px] !w-auto text-sm" value={bulkAction} onChange={(e) => setBulkAction(e.target.value)} aria-label="Bulk action">
+              <option value="">Bulk action…</option>
+              <option value="open_availability">Open availability</option>
+              <option value="lock_availability">Lock availability</option>
+              <option value="open_scheduling">Open scheduling</option>
+              <option value="publish">Publish & lock</option>
+              <option value="unlock_scheduling">Unlock scheduling</option>
+              <option value="cancel">Cancel</option>
+            </select>
+            <button
+              className="btn-primary !min-h-[40px]"
+              disabled={!bulkAction || bulkPatch.isPending}
+              onClick={() => bulkPatch.mutate(BULK_ACTIONS[bulkAction])}
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
 
       <Card className="!p-0 divide-y divide-line">
         {data!.services.map((s) => (
           <div key={s.id} className="flex items-center gap-3 px-4 py-3">
+            <input
+              type="checkbox"
+              className="w-4 h-4 shrink-0"
+              aria-label={`Select ${s.title}`}
+              checked={selected.has(s.id)}
+              onChange={(e) => {
+                const next = new Set(selected);
+                if (e.target.checked) next.add(s.id);
+                else next.delete(s.id);
+                setSelected(next);
+              }}
+            />
             <Link to={`/team-lead/services/${s.id}/build`} className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">{s.title}</p>
               <p className="text-soft text-xs">

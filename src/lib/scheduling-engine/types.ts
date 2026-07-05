@@ -10,6 +10,9 @@ export interface EngineVolunteer {
   name: string;
   /** roleId -> proficiency for every role this volunteer is eligible for */
   eligibleRoles: Record<string, Proficiency>;
+  /** roleId -> the volunteer's stated instrument preference rank (1 = first
+      choice). Missing entries default to 1. Lower = preferred. */
+  rolePreferenceRank?: Record<string, number>;
 }
 
 export interface EngineAvailability {

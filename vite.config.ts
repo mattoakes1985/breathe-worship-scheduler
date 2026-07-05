@@ -3,6 +3,11 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 5173,
+    strictPort: true, // fail loudly rather than drift to another port —
+    // Supabase auth redirects are registered for exactly this origin
+  },
   resolve: {
     alias: { "@": "/src" },
   },

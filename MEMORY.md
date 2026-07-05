@@ -138,6 +138,20 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **PRD reference:** §13, §14
 - **Status:** Superseded — first verify run went green on Matt's machine 2026-07-05 (lint clean, 16/16 tests, build OK) after 30 type-level fixes; see AGENTS.md 22:45 resolution
 
+## [2026-07-05] v1.1 change batch from first hands-on review (Matt)
+- **Decision:** Nine changes from Matt's first real use, all shipped same-day: (1) bulk multi-select status/lock editing on /admin/services; (2) 169 songs imported from the team's existing spreadsheet incl. female+male keys, BPM, time signature — schema gained `songs.male_key` and `songs.time_signature` (migration 00006); (3) linked services (`services.linked_service_id`, symmetric) for the 9:15/11:15 pattern, with one-click rota copy and unlink; (4) volunteers keep read-only sight of their availability answers after locking; (5) per-role instrument preference rank (`role_eligibility.preference_rank`, volunteer-editable via `set_my_role_preference` RPC, migration 00007) — engine ranking is now cap ≫ availability ≫ instrument preference ≫ recency, and the suggestion panel offers the full ranked list per slot, not a take-it-or-leave-it #1; (7) lead dashboard shows posted swaps as well as claimed; (8) ServicePlanner: leads edit song set (key picked from female/male defaults, custom by exception) + running order on the service detail screen; (9) master schedule CSV export between any two dates.
+- **Why:** Direct user feedback after the §10.5 gate; item numbering matches Matt's message.
+- **Made by:** Matt (requirements), Fable 5 (implementation)
+- **PRD reference:** extends §6.3–6.7, §6.9; schema changes broadcast per §18.5.2
+- **Status:** Confirmed
+
+## [2026-07-05] Item 6 ("remove assignment confirmation") proposed then withdrawn
+- **Decision:** Matt initially asked to drop the confirm step, then kept it once clarified it's a visibility signal, not friction. SCHED-4 stands unchanged.
+- **Why:** Confirmation is how a lead knows a volunteer has actually seen their assignment.
+- **Made by:** Matt
+- **PRD reference:** §6.5 (SCHED-4)
+- **Status:** Confirmed (no change made)
+
 ## [2026-07-05] Multi-agent execution plan added
 - **Decision:** PRD §18 defines a 6-agent roster (Backend/Schema, Design System, three frontend agents split by feature area, QA/DevOps), three shared contract artifacts, and a "lock the contract, then parallelize" rule as the core safeguard against agents colliding.
 - **Why:** Matt requested the PRD be optimized for a multi-agent AI build team rather than assuming one agent builds serially.

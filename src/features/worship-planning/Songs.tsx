@@ -110,10 +110,15 @@ export default function Songs() {
                 <p className="text-soft text-xs truncate">
                   {s.artist || "—"}
                   {s.tempo_bpm ? ` · ${s.tempo_bpm} bpm` : ""}
+                  {s.time_signature ? ` · ${s.time_signature}` : ""}
                   {(s.tags ?? []).length > 0 && ` · ${(s.tags ?? []).join(", ")}`}
                 </p>
               </div>
-              {s.default_key && <Badge tone="accent">Key {s.default_key}</Badge>}
+              {(s.default_key || s.male_key) && (
+                <Badge tone="accent">
+                  F {s.default_key ?? "—"} · M {s.male_key ?? "—"}
+                </Badge>
+              )}
             </button>
           ))}
         </Card>
@@ -150,6 +155,8 @@ function SongModal({
   const [title, setTitle] = useState(song?.title ?? "");
   const [artist, setArtist] = useState(song?.artist ?? "");
   const [key, setKey] = useState(song?.default_key ?? "");
+  const [maleKey, setMaleKey] = useState(song?.male_key ?? "");
+  const [timeSig, setTimeSig] = useState(song?.time_signature ?? "");
   const [bpm, setBpm] = useState(song?.tempo_bpm?.toString() ?? "");
   const [ccli, setCcli] = useState(song?.ccli_number ?? "");
   const [tags, setTags] = useState((song?.tags ?? []).join(", "));
@@ -166,20 +173,26 @@ function SongModal({
           <Field label="Artist">
             <input className="input" value={artist} onChange={(e) => setArtist(e.target.value)} />
           </Field>
-          <Field label="Default key">
-            <select className="input" value={key} onChange={(e) => setKey(e.target.value)}>
-              <option value="">—</option>
-              {KEYS.map((k) => (
-                <option key={k}>{k}</option>
-              ))}
-            </select>
+          <Field label="Female key">
+            <input className="input" list="key-options" value={key} onChange={(e) => setKey(e.target.value)} />
+          </Field>
+          <Field label="Male key">
+            <input className="input" list="key-options" value={maleKey} onChange={(e) => setMaleKey(e.target.value)} />
           </Field>
           <Field label="Tempo (bpm)">
             <input className="input" type="number" value={bpm} onChange={(e) => setBpm(e.target.value)} />
           </Field>
+          <Field label="Time signature">
+            <input className="input" value={timeSig} onChange={(e) => setTimeSig(e.target.value)} placeholder="4/4" />
+          </Field>
           <Field label="CCLI number">
             <input className="input" value={ccli} onChange={(e) => setCcli(e.target.value)} />
           </Field>
+          <datalist id="key-options">
+            {KEYS.map((k) => (
+              <option key={k} value={k} />
+            ))}
+          </datalist>
         </div>
         <Field label="Tags" hint="Comma-separated, e.g. fast, opener, communion">
           <input className="input" value={tags} onChange={(e) => setTags(e.target.value)} />
@@ -199,6 +212,8 @@ function SongModal({
               title: title.trim(),
               artist: artist || null,
               default_key: key || null,
+              male_key: maleKey || null,
+              time_signature: timeSig || null,
               tempo_bpm: bpm ? Number(bpm) : null,
               ccli_number: ccli || null,
               tags: tags ? tags.split(",").map((t) => t.trim()).filter(Boolean) : null,

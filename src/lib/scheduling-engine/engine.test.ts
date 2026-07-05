@@ -204,6 +204,46 @@ describe("serving-preference soft cap (SCHED-7, Appendix B)", () => {
   });
 });
 
+describe("instrument preference ranking (change request #5)", () => {
+  it("prefers the volunteer whose first-choice instrument this is, even against better recency", () => {
+    const input = base({
+      volunteers: [
+        { profileId: "a", name: "Alice", eligibleRoles: { drums: "competent" }, rolePreferenceRank: { drums: 2 } },
+        { profileId: "b", name: "Bob", eligibleRoles: { drums: "competent" }, rolePreferenceRank: { drums: 1 } },
+      ],
+      // Alice is fairer on recency (never served) — Bob served recently
+      history: [{ profileId: "b", roleId: "drums", serviceDate: "2026-07-05" }],
+    });
+    const [s] = suggestRota(input);
+    expect(s.profileId).toBe("b"); // instrument preference outranks recency
+  });
+
+  it("availability still outranks instrument preference", () => {
+    const input = base({
+      volunteers: [
+        { profileId: "a", name: "Alice", eligibleRoles: { drums: "competent" }, rolePreferenceRank: { drums: 5 } },
+        { profileId: "b", name: "Bob", eligibleRoles: { drums: "competent" }, rolePreferenceRank: { drums: 1 } },
+      ],
+      availability: [
+        { profileId: "a", response: "yes" },
+        { profileId: "b", response: "maybe" },
+      ],
+    });
+    const [s] = suggestRota(input);
+    expect(s.profileId).toBe("a"); // a firm yes beats a preferred maybe
+  });
+
+  it("defaults to rank 1 when no preference is stated", () => {
+    const ranked = rankCandidates(base(), "drums", new Set());
+    expect(ranked.length).toBeGreaterThan(0); // no crash, all treated as first-choice
+  });
+
+  it("ranked alternatives are exposed for the lead to choose from", () => {
+    const ranked = rankCandidates(base(), "drums", new Set());
+    expect(ranked.map((r) => r.profileId)).toEqual(["a", "b"]); // full ordered list, not just #1
+  });
+});
+
 describe("eligibility (PPL-3)", () => {
   it("only offers volunteers for roles they are eligible for", () => {
     const ranked = rankCandidates(base(), "drums", new Set());

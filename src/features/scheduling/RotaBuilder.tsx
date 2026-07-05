@@ -9,7 +9,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Badge, Card, ErrorState, Modal, PageHeader, Spinner, statusBadgeTone } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/format";
-import { suggestRota, servicesOverlap, type EngineServiceInput, type Suggestion } from "@/lib/scheduling-engine";
+import { rankCandidates, suggestRota, servicesOverlap, type EngineServiceInput, type Suggestion } from "@/lib/scheduling-engine";
 import type { TablesUpdate } from "@/lib/supabase/database.types";
 
 const STATUS_FLOW = ["draft", "availability_open", "scheduling_open", "published", "completed"] as const;
@@ -21,6 +21,7 @@ export default function RotaBuilder() {
   const qc = useQueryClient();
   const [pickerSlot, setPickerSlot] = useState<{ roleId: string; roleName: string } | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [altPick, setAltPick] = useState<Record<string, string>>({}); // slotKey -> chosen profileId
   const [warn, setWarn] = useState<string | null>(null);
 
   const { data, isLoading, isError, refetch } = useQuery({
@@ -38,9 +39,9 @@ export default function RotaBuilder() {
       ]);
       if (service.error) throw service.error;
       const svc = service.data;
-      const [members, eligibility, availability, blockouts, prefs, history, sameDayServices] = await Promise.all([
+      const [members, eligibility, availability, blockouts, prefs, history, sameDayServices, linkCandidates] = await Promise.all([
         supabase.from("team_memberships").select("profile_id, profiles(id,full_name,preferred_name)").eq("team_id", svc.team_id).eq("is_active", true),
-        supabase.from("role_eligibility").select("profile_id, role_id, proficiency").eq("is_active", true),
+        supabase.from("role_eligibility").select("profile_id, role_id, proficiency, preference_rank").eq("is_active", true),
         supabase.from("availability_responses").select("profile_id, response, note").eq("service_id", id!),
         supabase.from("blockout_dates").select("*"),
         supabase.from("serving_preferences").select("*"),
@@ -54,6 +55,15 @@ export default function RotaBuilder() {
           .select("id, service_date, start_time, end_time")
           .eq("service_date", svc.service_date)
           .neq("id", id!),
+        supabase
+          .from("services")
+          .select("id, title, service_date, start_time, linked_service_id")
+          .eq("team_id", svc.team_id)
+          .is("archived_at", null)
+          .neq("id", id!)
+          .gte("service_date", svc.service_date)
+          .lte("service_date", svc.service_date) // same-day sibling services (9:15 ↔ 11:15)
+          .order("start_time"),
       ]);
       return {
         service: svc,
@@ -68,6 +78,7 @@ export default function RotaBuilder() {
         prefs: prefs.data ?? [],
         history: history.data ?? [],
         sameDayServices: sameDayServices.data ?? [],
+        linkCandidates: linkCandidates.data ?? [],
       };
     },
   });
@@ -77,10 +88,12 @@ export default function RotaBuilder() {
     const volunteers = data.members.map((m) => {
       const p = m.profiles as { id: string; full_name: string; preferred_name: string | null };
       const eligibleRoles: Record<string, "trainee" | "competent" | "lead"> = {};
+      const rolePreferenceRank: Record<string, number> = {};
       for (const e of data.eligibility.filter((e) => e.profile_id === p.id)) {
         eligibleRoles[e.role_id] = e.proficiency as "trainee" | "competent" | "lead";
+        rolePreferenceRank[e.role_id] = e.preference_rank ?? 1;
       }
-      return { profileId: p.id, name: p.preferred_name || p.full_name, eligibleRoles };
+      return { profileId: p.id, name: p.preferred_name || p.full_name, eligibleRoles, rolePreferenceRank };
     });
     const slots = data.requirements.flatMap((r) =>
       Array.from({ length: r.quantity_required }, (_, i) => ({
@@ -134,6 +147,47 @@ export default function RotaBuilder() {
       setPickerSlot(null);
       setWarn(null);
     },
+    onError: (e) => setWarn((e as Error).message),
+  });
+
+  // Change request #3: link the 9:15 and 11:15 services (decouple anytime)
+  const setLink = useMutation({
+    mutationFn: async (otherId: string | null) => {
+      const current = data!.service.linked_service_id;
+      const ops = [supabase.from("services").update({ linked_service_id: otherId }).eq("id", id!)];
+      if (current) ops.push(supabase.from("services").update({ linked_service_id: null }).eq("id", current));
+      if (otherId) ops.push(supabase.from("services").update({ linked_service_id: id! }).eq("id", otherId));
+      const results = await Promise.all(ops);
+      for (const r of results) if (r.error) throw r.error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rota-builder"] }),
+    onError: (e) => setWarn((e as Error).message),
+  });
+
+  const copyRotaToLinked = useMutation({
+    mutationFn: async () => {
+      const linkedId = data!.service.linked_service_id;
+      if (!linkedId) throw new Error("No linked service");
+      const { data: existing } = await supabase
+        .from("assignments")
+        .select("profile_id, role_id")
+        .eq("service_id", linkedId);
+      const existingKeys = new Set((existing ?? []).map((a) => `${a.profile_id}:${a.role_id}`));
+      const toCopy = data!.assignments
+        .filter((a) => a.status !== "needs_substitute")
+        .filter((a) => !existingKeys.has(`${a.profile_id}:${a.role_id}`))
+        .map((a) => ({
+          service_id: linkedId,
+          role_id: a.role_id,
+          profile_id: a.profile_id,
+          assigned_by: uid,
+        }));
+      if (toCopy.length === 0) return 0;
+      const { error } = await supabase.from("assignments").insert(toCopy);
+      if (error) throw error;
+      return toCopy.length;
+    },
+    onSuccess: (n) => setWarn(n ? `Copied ${n} assignments to the linked service.` : "Linked service already has this rota."),
     onError: (e) => setWarn((e as Error).message),
   });
 
@@ -216,6 +270,38 @@ export default function RotaBuilder() {
         )}
       </div>
 
+      {/* Linked services (change request #3): 9:15 ↔ 11:15 pairing */}
+      <Card className="!py-3">
+        {data.service.linked_service_id ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm">
+              🔗 Linked with{" "}
+              <b>{data.linkCandidates.find((c) => c.id === data.service.linked_service_id)?.title ?? "another service"}</b>
+              {" · "}
+              {formatTime(data.linkCandidates.find((c) => c.id === data.service.linked_service_id)?.start_time ?? null)}
+            </span>
+            <button className="btn-secondary !min-h-[36px] text-xs" onClick={() => copyRotaToLinked.mutate()} disabled={copyRotaToLinked.isPending}>
+              Copy this rota across
+            </button>
+            <button className="btn-ghost !min-h-[36px] text-xs text-danger" onClick={() => setLink.mutate(null)}>
+              Unlink
+            </button>
+          </div>
+        ) : data.linkCandidates.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-soft">Same-day service:</span>
+            {data.linkCandidates.map((c) => (
+              <button key={c.id} className="btn-secondary !min-h-[36px] text-xs" onClick={() => setLink.mutate(c.id)}>
+                🔗 Link with {c.title} ({formatTime(c.start_time)})
+              </button>
+            ))}
+            <span className="text-faint text-xs">Linking lets you copy one rota across both.</span>
+          </div>
+        ) : (
+          <p className="text-faint text-xs">No same-day service to link with.</p>
+        )}
+      </Card>
+
       {/* Suggestion panel — accept/reject each individually (SCHED-2) */}
       {suggestions && (
         <Card className="!bg-accent-soft/60 border-accent/20">
@@ -227,29 +313,45 @@ export default function RotaBuilder() {
           </div>
           <ul className="space-y-2">
             {suggestions.map((s, i) => {
-              const vol = engineInput.volunteers.find((v) => v.profileId === s.profileId);
               const slot = engineInput.slots[i];
-              const alreadyFilled = data.assignments.some((a) => a.role_id === s.roleId && a.profile_id === s.profileId);
+              const slotKey = `${s.roleId}-${s.slotIndex}`;
+              const assignedIds = new Set(data.assignments.map((a) => a.profile_id));
+              // Full ranked list so the lead can pick someone other than #1 (change request #5)
+              const alternatives = rankCandidates(engineInput, s.roleId, assignedIds).slice(0, 8);
+              const chosenId = altPick[slotKey] ?? s.profileId ?? "";
+              const chosen = alternatives.find((c) => c.profileId === chosenId);
               return (
-                <li key={`${s.roleId}-${s.slotIndex}`} className="bg-surface rounded-md p-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold">
-                      {slot?.roleName}: {vol ? vol.name : <span className="text-danger">no candidate found</span>}
-                      {s.overPreferenceCap && (
-                        <span className="chip bg-warning-soft text-warning ml-2">at their preferred limit</span>
-                      )}
-                    </p>
-                    <p className="text-faint text-xs truncate">{s.reasons.join(" · ")}</p>
+                <li key={slotKey} className="bg-surface rounded-md p-3">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold w-28 shrink-0 truncate">{slot?.roleName}</p>
+                    {alternatives.length === 0 ? (
+                      <span className="text-danger text-sm flex-1">no candidate found</span>
+                    ) : (
+                      <select
+                        className="input !min-h-[38px] flex-1 text-sm"
+                        value={chosenId}
+                        aria-label={`Candidate for ${slot?.roleName}`}
+                        onChange={(e) => setAltPick((p) => ({ ...p, [slotKey]: e.target.value }))}
+                      >
+                        {alternatives.map((c, idx) => (
+                          <option key={c.profileId} value={c.profileId}>
+                            {idx + 1}. {c.name}
+                            {c.overPreferenceCap ? " — at their limit" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                    {chosenId && !data.assignments.some((a) => a.role_id === s.roleId && a.profile_id === chosenId) && (
+                      <button
+                        className="btn-primary !min-h-[38px]"
+                        onClick={() => assign.mutate({ roleId: s.roleId, profileId: chosenId })}
+                        disabled={assign.isPending || locked}
+                      >
+                        Assign
+                      </button>
+                    )}
                   </div>
-                  {s.profileId && !alreadyFilled && (
-                    <button
-                      className="btn-primary !min-h-[38px]"
-                      onClick={() => assign.mutate({ roleId: s.roleId, profileId: s.profileId! })}
-                      disabled={assign.isPending || locked}
-                    >
-                      Accept
-                    </button>
-                  )}
+                  {chosen && <p className="text-faint text-xs mt-1.5 truncate">{chosen.reasons.join(" · ")}</p>}
                 </li>
               );
             })}

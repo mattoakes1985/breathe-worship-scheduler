@@ -48,7 +48,9 @@ export default function TeamLeadDashboard() {
 
   if (isLoading) return <Spinner label="Loading your team view…" />;
 
+  // Change request #7: leads see posted (open) swaps too, not just claimed ones
   const claimedSwaps = data!.openSwaps.filter((s) => s.status === "claimed").length;
+  const postedSwaps = data!.openSwaps.filter((s) => s.status === "open").length;
 
   return (
     <div className="space-y-6">
@@ -59,9 +61,9 @@ export default function TeamLeadDashboard() {
         <ActionCard
           to="/swaps"
           icon={<Repeat size={18} />}
-          tone={claimedSwaps > 0 ? "warning" : "neutral"}
-          label="Swaps to approve"
-          value={claimedSwaps}
+          tone={claimedSwaps > 0 ? "warning" : postedSwaps > 0 ? "danger" : "neutral"}
+          label={`Swaps: ${postedSwaps} posted · ${claimedSwaps} to approve`}
+          value={postedSwaps + claimedSwaps}
         />
         <ActionCard
           to="/schedule"

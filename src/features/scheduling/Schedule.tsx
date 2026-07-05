@@ -1,8 +1,9 @@
 // SCHED-6: read-only master schedule — any active volunteer sees who's
 // serving in every role for upcoming published services.
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronRight } from "lucide-react";
+import { CalendarDays, ChevronRight, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Card, EmptyState, PageHeader, Spinner } from "@/components/ui";
 import { formatDate, formatTime, todayISO } from "@/lib/format";
@@ -53,7 +54,11 @@ export default function Schedule() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Master schedule" subtitle="Everyone serving, every upcoming service." />
+      <PageHeader
+        title="Master schedule"
+        subtitle="Everyone serving, every upcoming service."
+        action={<CsvExport />}
+      />
       {data!.services.length === 0 ? (
         <EmptyState
           icon={<CalendarDays />}
@@ -93,6 +98,91 @@ export default function Schedule() {
             </Card>
           );
         })
+      )}
+    </div>
+  );
+}
+
+/** Change request #9: download the master schedule between any two dates as CSV. */
+function CsvExport() {
+  const [open, setOpen] = useState(false);
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() + 2);
+    return d.toISOString().slice(0, 10);
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function download() {
+    setBusy(true);
+    try {
+      const { data: services } = await supabase
+        .from("services")
+        .select("id,title,service_date,start_time")
+        .in("status", ["published", "completed"])
+        .gte("service_date", from)
+        .lte("service_date", to)
+        .order("service_date");
+      const ids = (services ?? []).map((s) => s.id);
+      const { data: assignments } = ids.length
+        ? await supabase
+            .from("assignments")
+            .select("service_id, status, roles(name,sort_order), profiles!assignments_profile_id_fkey(preferred_name,full_name)")
+            .in("service_id", ids)
+            .in("status", ["invited", "confirmed"])
+        : { data: [] };
+      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+      const lines = ["Date,Time,Service,Role,Volunteer,Status"];
+      for (const s of services ?? []) {
+        const rota = (assignments ?? [])
+          .filter((a) => a.service_id === s.id)
+          .sort(
+            (a, b) =>
+              ((a.roles as { sort_order: number } | null)?.sort_order ?? 0) -
+              ((b.roles as { sort_order: number } | null)?.sort_order ?? 0)
+          );
+        for (const a of rota) {
+          const p = a.profiles as { preferred_name: string | null; full_name: string } | null;
+          lines.push(
+            [
+              s.service_date,
+              formatTime(s.start_time),
+              esc(s.title),
+              esc((a.roles as { name: string } | null)?.name ?? ""),
+              esc(p?.preferred_name || p?.full_name || ""),
+              a.status,
+            ].join(",")
+          );
+        }
+        if (rota.length === 0) lines.push([s.service_date, formatTime(s.start_time), esc(s.title), "", "", ""].join(","));
+      }
+      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `master-schedule-${from}-to-${to}.csv`;
+      a.click();
+      setOpen(false);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button className="btn-secondary" onClick={() => setOpen((o) => !o)}>
+        <Download size={16} /> CSV
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-2 z-30 card p-4 w-64 shadow-raised">
+          <label className="block text-xs font-semibold mb-1">From</label>
+          <input type="date" className="input mb-2" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <label className="block text-xs font-semibold mb-1">To</label>
+          <input type="date" className="input mb-3" value={to} onChange={(e) => setTo(e.target.value)} />
+          <button className="btn-primary w-full" onClick={download} disabled={busy || !from || !to}>
+            {busy ? "Building…" : "Download CSV"}
+          </button>
+        </div>
       )}
     </div>
   );
