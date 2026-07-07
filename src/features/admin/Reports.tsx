@@ -92,6 +92,7 @@ export default function Reports() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/admin"
         title="Reports & fairness"
         subtitle="Pastoral-care data — not visible to volunteers."
         action={

@@ -75,6 +75,7 @@ export default function Templates() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/admin"
         title="Service templates"
         subtitle="Patterns that generate services — the template itself is not a calendar event."
         action={

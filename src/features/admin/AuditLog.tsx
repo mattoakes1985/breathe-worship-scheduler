@@ -26,7 +26,7 @@ export default function AuditLog() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Audit log" subtitle="Every scheduling and admin mutation, automatically recorded." />
+      <PageHeader back="/admin" title="Audit log" subtitle="Every scheduling and admin mutation, automatically recorded." />
       <Card className="!p-0 divide-y divide-line">
         {data!.log.map((e) => (
           <div key={e.id} className="px-4 py-3 flex items-center gap-3">

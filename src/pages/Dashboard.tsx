@@ -11,7 +11,7 @@ import { useState } from "react";
 import { Modal, Field } from "@/components/ui";
 
 export default function Dashboard() {
-  const { profile, session } = useAuth();
+  const { profile, session, isTeamLead, isAdmin } = useAuth();
   const qc = useQueryClient();
   const uid = session!.user.id;
   const [declining, setDeclining] = useState<string | null>(null);
@@ -188,12 +188,38 @@ export default function Dashboard() {
                   ? served >= cap
                     ? `You've served ${served} of the ${cap} times you wanted to this month — thank you. Enjoy being in the congregation.`
                     : `You've served ${served} of the ${cap} times you wanted to this month.`
-                  : `You've served ${served} time${served === 1 ? "" : "s"} this month — thank you.`}
+                  : served > 0
+                    ? `You've served ${served} time${served === 1 ? "" : "s"} this month — thank you.`
+                    : "Your serving story lives here — streaks, milestones and more."}
               </p>
               <p className="text-soft text-xs mt-0.5">See your serving story →</p>
             </div>
           </div>
         </Link>
+      </section>
+
+      {/* Quick links — the only route to lead/admin/preferences on mobile */}
+      <section aria-label="Quick links" className="md:hidden">
+        <div className="flex flex-wrap gap-2">
+          {isTeamLead && (
+            <Link to="/team-lead" className="chip bg-accent-soft text-accent-strong !min-h-[40px]">
+              Team Lead
+            </Link>
+          )}
+          {(isTeamLead || isAdmin) && (
+            <Link to="/team-lead/songs" className="chip bg-accent-soft text-accent-strong !min-h-[40px]">
+              Songs
+            </Link>
+          )}
+          {isAdmin && (
+            <Link to="/admin" className="chip bg-accent-soft text-accent-strong !min-h-[40px]">
+              Admin
+            </Link>
+          )}
+          <Link to="/profile/preferences" className="chip bg-raised text-soft !min-h-[40px]">
+            Preferences
+          </Link>
+        </div>
       </section>
 
       <Modal open={declining !== null} onClose={() => setDeclining(null)} title="Decline this assignment">

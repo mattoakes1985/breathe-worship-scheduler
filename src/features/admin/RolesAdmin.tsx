@@ -49,6 +49,7 @@ export default function RolesAdmin() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/admin"
         title="Roles"
         subtitle={`Serving roles within ${data!.team?.name ?? "the team"}.`}
         action={

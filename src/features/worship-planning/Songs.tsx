@@ -64,6 +64,7 @@ export default function Songs() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/team-lead"
         title="Song library"
         subtitle={`${songs?.length ?? 0} songs`}
         action={
@@ -116,7 +117,12 @@ export default function Songs() {
               </div>
               {(s.default_key || s.male_key) && (
                 <Badge tone="accent">
-                  F {s.default_key ?? "—"} · M {s.male_key ?? "—"}
+                  {[
+                    s.default_key ? `Female ${s.default_key}` : null,
+                    s.male_key ? `Male ${s.male_key}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </Badge>
               )}
             </button>

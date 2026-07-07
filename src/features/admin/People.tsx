@@ -132,6 +132,7 @@ export default function People() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/admin"
         title="People"
         subtitle="Invite-only — volunteers can't sign themselves up."
         action={

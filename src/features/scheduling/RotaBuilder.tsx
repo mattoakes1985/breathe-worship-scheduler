@@ -218,6 +218,7 @@ export default function RotaBuilder() {
   return (
     <div className="space-y-5">
       <PageHeader
+        back="/team-lead"
         title={service.title}
         subtitle={`${formatDate(service.service_date)} · ${formatTime(service.start_time)}`}
         action={<Badge tone={statusBadgeTone(service.status)}>{service.status.replace(/_/g, " ")}</Badge>}
@@ -237,18 +238,35 @@ export default function RotaBuilder() {
         >
           <Sparkles size={16} /> Auto-suggest rota
         </button>
-        {nextStatus && !locked && (
-          <button
-            className="btn-secondary"
-            onClick={() => {
-              const patch: TablesUpdate<"services"> = { status: nextStatus };
-              if (nextStatus === "published") patch.scheduling_locked = true; // SCHED-5
-              updateService.mutate(patch);
-            }}
-          >
-            Move to “{nextStatus.replace(/_/g, " ")}”
-          </button>
-        )}
+        {/* Status can move forward OR back (e.g. reopen availability) — every change is audit-logged */}
+        <select
+          className="input !min-h-[44px] !w-auto text-sm font-semibold"
+          value={service.status}
+          aria-label="Service status"
+          onChange={(e) => {
+            const next = e.target.value;
+            if (next === service.status) return;
+            const patch: TablesUpdate<"services"> = { status: next };
+            if (next === "published") patch.scheduling_locked = true; // SCHED-5
+            if (next === "availability_open") {
+              patch.scheduling_locked = false;
+              patch.availability_locked = false;
+            }
+            if (
+              (service.status === "published" || locked) &&
+              !window.confirm("Move a published/locked rota back? This reopens it and is logged in the audit trail.")
+            )
+              return;
+            updateService.mutate(patch);
+          }}
+        >
+          {STATUS_FLOW.map((s) => (
+            <option key={s} value={s}>
+              {s.replace(/_/g, " ")}
+            </option>
+          ))}
+          <option value="cancelled">cancelled</option>
+        </select>
         {locked ? (
           <button
             className="btn-secondary"

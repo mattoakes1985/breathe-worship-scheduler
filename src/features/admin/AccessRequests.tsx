@@ -44,7 +44,7 @@ export default function AccessRequests() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Admin access requests" />
+      <PageHeader back="/admin" title="Admin access requests" />
       {data!.length === 0 ? (
         <EmptyState icon={<KeyRound />} title="No requests" body="When someone asks for admin access, you'll review it here." />
       ) : (

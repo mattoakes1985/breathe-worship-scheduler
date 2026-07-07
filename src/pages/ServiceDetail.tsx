@@ -52,6 +52,7 @@ export default function ServiceDetail() {
   return (
     <div className="space-y-6">
       <PageHeader
+        back
         title={service.title}
         subtitle={`${formatDate(service.service_date)} · ${formatTime(service.start_time)}${
           service.end_time ? `–${formatTime(service.end_time)}` : ""

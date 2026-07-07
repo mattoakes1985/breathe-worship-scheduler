@@ -1,6 +1,7 @@
 // Shared UI primitives — themed per design-tokens.json, not default anything (§10.6).
 import type { ReactNode } from "react";
-import { Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, Loader2 } from "lucide-react";
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <div className={`card p-4 sm:p-5 ${className}`}>{children}</div>;
@@ -10,16 +11,31 @@ export function PageHeader({
   title,
   subtitle,
   action,
+  back,
 }: {
   title: string;
   subtitle?: string;
   action?: ReactNode;
+  /** true = browser back; a string = navigate to that route */
+  back?: boolean | string;
 }) {
+  const navigate = useNavigate();
   return (
     <div className="flex items-start justify-between gap-3 mb-5">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {subtitle && <p className="text-soft text-sm mt-1">{subtitle}</p>}
+      <div className="flex items-start gap-1.5 min-w-0">
+        {back && (
+          <button
+            className="btn-ghost !min-h-[40px] px-1.5 -ml-2 mt-0.5 shrink-0"
+            aria-label="Back"
+            onClick={() => (typeof back === "string" ? navigate(back) : navigate(-1))}
+          >
+            <ChevronLeft size={22} />
+          </button>
+        )}
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+          {subtitle && <p className="text-soft text-sm mt-1">{subtitle}</p>}
+        </div>
       </div>
       {action}
     </div>

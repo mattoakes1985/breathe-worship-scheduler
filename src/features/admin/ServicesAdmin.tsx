@@ -76,6 +76,7 @@ export default function ServicesAdmin() {
   return (
     <div className="space-y-4">
       <PageHeader
+        back="/admin"
         title="All services"
         subtitle="Including drafts and archived — nothing is ever hard-deleted."
         action={

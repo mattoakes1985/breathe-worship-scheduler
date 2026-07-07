@@ -162,7 +162,9 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">{song?.title}</p>
                     <p className="text-faint text-xs">
-                      {song?.artist ?? ""} · F:{song?.default_key ?? "—"} M:{song?.male_key ?? "—"}
+                      {[song?.artist, song?.default_key ? `Female ${song.default_key}` : null, song?.male_key ? `Male ${song.male_key}` : null]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </div>
                   <KeyPicker
@@ -237,7 +239,12 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
                   <span className="block text-faint text-xs">{s.artist ?? ""}</span>
                 </span>
                 <span className="chip bg-accent-soft text-accent-strong">
-                  {s.default_key ?? "—"}{s.male_key ? ` / ${s.male_key}` : ""}
+                  {[
+                    s.default_key ? `Female ${s.default_key}` : null,
+                    s.male_key ? `Male ${s.male_key}` : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ") || "no key"}
                 </span>
               </button>
             </li>
@@ -297,8 +304,8 @@ function KeyPicker({
         else setCustom(true);
       }}
     >
-      <option value="female">F · {femaleKey ?? "—"}</option>
-      <option value="male" disabled={!maleKey}>M · {maleKey ?? "—"}</option>
+      <option value="female">Female · {femaleKey ?? "—"}</option>
+      <option value="male" disabled={!maleKey}>Male · {maleKey ?? "—"}</option>
       <option value="custom">Custom…</option>
     </select>
   );
