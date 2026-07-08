@@ -18,19 +18,25 @@ export default function People() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-people"],
     queryFn: async () => {
-      const [profiles, memberships, roles, eligibility, team] = await Promise.all([
+      const [profiles, memberships, roles, eligibility, team, legacy] = await Promise.all([
         supabase.from("profiles").select("*").order("full_name"),
         supabase.from("team_memberships").select("*"),
         supabase.from("roles").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("role_eligibility").select("*"),
         supabase.from("teams").select("id").limit(1).single(),
+        supabase.from("legacy_assignments").select("person_name").is("claimed_profile_id", null),
       ]);
+      const legacyCounts = new Map<string, number>();
+      for (const l of legacy.data ?? []) {
+        legacyCounts.set(l.person_name, (legacyCounts.get(l.person_name) ?? 0) + 1);
+      }
       return {
         profiles: (profiles.data ?? []) as Profile[],
         memberships: memberships.data ?? [],
         roles: roles.data ?? [],
         eligibility: eligibility.data ?? [],
         teamId: team.data?.id as string,
+        legacyNames: [...legacyCounts.entries()].sort((a, b) => b[1] - a[1]),
       };
     },
   });
@@ -98,6 +104,22 @@ export default function People() {
       }
     },
     onSuccess: invalidate,
+  });
+
+  const claimLegacy = useMutation({
+    mutationFn: async (args: { personName: string; profileId: string }) => {
+      const { data, error } = await supabase.rpc("claim_legacy_history", {
+        p_person_name: args.personName,
+        p_profile_id: args.profileId,
+      });
+      if (error) throw error;
+      return data as number;
+    },
+    onSuccess: (n) => {
+      invalidate();
+      setMsg(`Linked ${n} past services to this volunteer — their serving story and fairness history are now live.`);
+    },
+    onError: (e) => setMsg((e as Error).message),
   });
 
   const exportData = useMutation({
@@ -215,6 +237,42 @@ export default function People() {
                 })}
               </div>
             </div>
+
+            {data!.legacyNames.length > 0 && (
+              <div className="border-t border-line pt-4">
+                <h3 className="font-display font-bold text-sm mb-1">Link spreadsheet history</h3>
+                <p className="text-soft text-xs mb-2">
+                  Tap the name(s) this person went by in the old rota spreadsheet. Their past serving
+                  becomes real history — stats, streaks and fair scheduling from day one. Likely
+                  matches first.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[...data!.legacyNames]
+                    .sort((a, b) => {
+                      const nameMatch = (n: string) =>
+                        n.toLowerCase().split(" ")[0] === selected.full_name.toLowerCase().split(" ")[0] ? -1 : 0;
+                      return nameMatch(a[0]) - nameMatch(b[0]) || b[1] - a[1];
+                    })
+                    .map(([name, count]) => (
+                      <button
+                        key={name}
+                        className={`chip min-h-[36px] ${
+                          name.toLowerCase().split(" ")[0] === selected.full_name.toLowerCase().split(" ")[0]
+                            ? "bg-accent text-white"
+                            : "bg-raised text-soft"
+                        }`}
+                        disabled={claimLegacy.isPending}
+                        onClick={() => {
+                          if (window.confirm(`Link "${name}" (${count} past services) to ${selected.full_name}? This adds their serving history permanently.`))
+                            claimLegacy.mutate({ personName: name, profileId: selected.id });
+                        }}
+                      >
+                        {name} · {count}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-line pt-4">
               <h3 className="font-display font-bold text-sm mb-2">UK GDPR</h3>

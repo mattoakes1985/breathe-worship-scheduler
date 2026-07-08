@@ -189,6 +189,34 @@ export default function Preferences() {
         </div>
       </Card>
 
+      <Card>
+        <h2 className="font-display font-bold mb-1">Your rota in your calendar</h2>
+        <p className="text-soft text-sm mb-3">
+          Subscribe once and every service you're confirmed for appears in Apple/Google Calendar
+          automatically. In your calendar app choose "Add subscription calendar" and paste:
+        </p>
+        <div className="flex gap-2">
+          <input
+            className="input text-xs"
+            readOnly
+            value={`https://mlwkyhlzggqkkioxucxj.supabase.co/functions/v1/my-rota?token=${profile?.calendar_token ?? ""}`}
+            onFocus={(e) => e.target.select()}
+            aria-label="Calendar subscription URL"
+          />
+          <button
+            className="btn-secondary shrink-0"
+            onClick={() =>
+              navigator.clipboard.writeText(
+                `https://mlwkyhlzggqkkioxucxj.supabase.co/functions/v1/my-rota?token=${profile?.calendar_token ?? ""}`
+              )
+            }
+          >
+            Copy
+          </button>
+        </div>
+        <p className="text-faint text-xs mt-2">This link is personal — treat it like a password.</p>
+      </Card>
+
       <button className="btn-primary w-full" onClick={() => save.mutate()} disabled={save.isPending}>
         {save.isPending ? "Saving…" : saved ? "Saved ✓" : "Save preferences"}
       </button>

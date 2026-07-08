@@ -10,6 +10,8 @@ Two sections below: a **live, pruned list** of things currently needing someone'
 
 ## Open / Needs Response
 
+- [2026-07-08 01:30] Fable 5 — **action for @Matt (email notifications):** create a free Resend account (resend.com), verify a sending domain (or use their test domain initially), then give me the API key to set as a function secret and deploy `send-notification-emails`. Until then, notifications are in-app only — the §2.2 "know from a notification" promise is not yet met for volunteers who don't open the app.
+- [2026-07-08 01:30] Fable 5 — **action for @Matt (verify + commit):** run `npm run lint && npm test && npm run build`, click through the new pieces (glass UI, People → Link spreadsheet history, planner song intel, Preferences → calendar link, service share/print), then commit.
 - [2026-07-05 21:30] Fable 5 — **action for @Matt (Supabase dashboard, one-time):** (a) Auth → disable public sign-ups (AUTH-1); (b) deploy the `invite-volunteer` Edge Function (`supabase functions deploy invite-volunteer`); (c) set site URL. Details in `DEPLOYMENT.md`. Also: create your own account first (invite yourself via dashboard → Auth → Invite user), then set `is_admin=true` on your profile row — the first admin has to be bootstrapped manually.
 - [2026-07-05 21:30] Fable 5 — **gate for @Matt (§14):** production deploy is your go/no-go. Blocked behind the three items above.
 
@@ -56,6 +58,14 @@ External review caught a real bug: the PRD file was named `Breathe-Worship-Sched
 ### [2026-07-05 23:15] Fable 5 — resolution
 
 npm audit findings (all rooted in esbuild dev-server advisory GHSA-67mh-4wv8-2f99, dev-only exposure, nothing shipped to production) resolved by a deliberate toolchain upgrade on Matt's machine: vite 5→8, vitest 2→4, @vitejs/plugin-react 4→6. Full verify chain re-ran green; bundle slightly smaller (148 kB gzip). Admin bootstrap also complete: matt.oakes@live.co.uk is admin + Breathe Worship team lead (required trigger fix in migration 00005 — the privilege guard now bypasses direct-DB/service-role access, blocking only signed-in non-admin users). Dashboard one-timers done (sign-ups off, site URL set); `invite-volunteer` Edge Function deployed and ACTIVE. Remaining: git commit, §13 manual QA click-through, §14 go/no-go.
+
+### [2026-07-08 12:00] Fable 5 — status
+
+Feedback iterations on the awesome-batch: glass UI rebuilt as raw CSS (full-viewport brand wash + saturate blur + whisper borders — Safari-safe via -webkit prefix) after two too-subtle passes; Past services view on Schedule with band names shown from unclaimed legacy records (RLS opened to members, migration 00010); dashboard stats collapse to a quiet link when empty; clickable data visuals added — My Stats (12-month serving chart with month drill-down, instrument split) and new Song Insights page (/team-lead/songs/insights: most-sung with per-song play history, comeback candidates, key spread, 12m/all-time toggle) on dependency-free chart primitives. Committed; push + verify on Matt's machine.
+
+### [2026-07-08 01:30] Fable 5 — status
+
+"Make it awesome" batch shipped (see MEMORY.md 2026-07-08 entry): glass UI across shell/cards/modals with ambient brand-gradient background; 254 historical services + 947 setlists + 1,884 staged person-records imported from the 2021-2026 spreadsheet; claim-on-signup flow in People (name chips → claim_legacy_history RPC → real assignments); song intel (counts, last-sung, stale filter) in planner + library; daily reminder cron (pg_cron, 07:00); per-volunteer iCal feed deployed (`my-rota`, token auth) with subscribe UI in Preferences; WhatsApp share + print run sheet on service detail; Resend email function written, awaiting API key. Migrations 00008-00009 applied live and committed. Awaiting Matt's verify run.
 
 ### [2026-07-06 01:00] Fable 5 — status
 

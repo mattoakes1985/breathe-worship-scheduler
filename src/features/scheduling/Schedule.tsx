@@ -23,6 +23,59 @@ interface ScheduleService {
 }
 
 export default function Schedule() {
+  const [mode, setMode] = useState<"upcoming" | "past">("upcoming");
+
+  const { data: past, isLoading: pastLoading } = useQuery({
+    queryKey: ["past-services"],
+    enabled: mode === "past",
+    queryFn: async () => {
+      const [services, setlists, legacy] = await Promise.all([
+        supabase
+          .from("services")
+          .select("id,title,service_date,start_time")
+          .in("status", ["published", "completed"])
+          .lt("service_date", todayISO())
+          .order("service_date", { ascending: false })
+          .limit(400),
+        supabase
+          .from("service_songs")
+          .select("service_id, order_index, songs(title)")
+          .order("order_index"),
+        // Band line: spreadsheet-era names (works before anyone signs up)
+        supabase.from("legacy_assignments").select("service_id, person_name"),
+      ]);
+      const ids = new Set((services.data ?? []).map((s) => s.id));
+      const { data: realAssignments } = ids.size
+        ? await supabase
+            .from("assignments")
+            .select("service_id, profiles!assignments_profile_id_fkey(preferred_name,full_name)")
+            .in("service_id", [...ids])
+            .in("status", ["confirmed", "invited"])
+        : { data: [] };
+      const songsByService = new Map<string, string[]>();
+      for (const ss of setlists.data ?? []) {
+        const t = (ss.songs as { title: string } | null)?.title;
+        if (!t) continue;
+        const list = songsByService.get(ss.service_id) ?? [];
+        list.push(t);
+        songsByService.set(ss.service_id, list);
+      }
+      const bandByService = new Map<string, Set<string>>();
+      const addBand = (sid: string, name: string | null | undefined) => {
+        if (!name || !ids.has(sid)) return;
+        const set = bandByService.get(sid) ?? new Set();
+        set.add(name);
+        bandByService.set(sid, set);
+      };
+      for (const a of realAssignments ?? []) {
+        const p = a.profiles as { preferred_name: string | null; full_name: string } | null;
+        addBand(a.service_id, p?.preferred_name || p?.full_name);
+      }
+      for (const l of legacy.data ?? []) addBand(l.service_id, l.person_name);
+      return { services: (services.data ?? []) as ScheduleService[], songsByService, bandByService };
+    },
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["master-schedule"],
     queryFn: async () => {
@@ -50,22 +103,60 @@ export default function Schedule() {
     },
   });
 
-  if (isLoading) return <Spinner label="Loading the schedule…" />;
+  if (isLoading && mode === "upcoming") return <Spinner label="Loading the schedule…" />;
 
   return (
     <div className="space-y-4">
       <PageHeader
         title="Master schedule"
-        subtitle="Everyone serving, every upcoming service."
+        subtitle={mode === "upcoming" ? "Everyone serving, every upcoming service." : "Every service and setlist, back to 2021."}
         action={<CsvExport />}
       />
-      {data!.services.length === 0 ? (
+      <div className="grid grid-cols-2 gap-2">
+        <button className={mode === "upcoming" ? "btn-primary" : "btn-secondary"} onClick={() => setMode("upcoming")}>
+          Upcoming
+        </button>
+        <button className={mode === "past" ? "btn-primary" : "btn-secondary"} onClick={() => setMode("past")}>
+          Past ({past?.services.length ?? "…"})
+        </button>
+      </div>
+
+      {mode === "past" &&
+        (pastLoading ? (
+          <Spinner label="Digging through the archives…" />
+        ) : (
+          (past?.services ?? []).map((s) => {
+            const setlist = past!.songsByService.get(s.id) ?? [];
+            return (
+              <Link key={s.id} to={`/services/${s.id}`} className="card block p-4 hover:shadow-raised transition-shadow">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate">{s.title}</p>
+                    <p className="text-soft text-xs">{formatDate(s.service_date)}</p>
+                  </div>
+                  <ChevronRight size={16} className="text-faint shrink-0" />
+                </div>
+                {(past!.bandByService.get(s.id)?.size ?? 0) > 0 && (
+                  <p className="text-soft text-xs mt-1.5 truncate">
+                    🎤 {[...past!.bandByService.get(s.id)!].join(" · ")}
+                  </p>
+                )}
+                {setlist.length > 0 && (
+                  <p className="text-faint text-xs mt-1 truncate">🎵 {setlist.join(" · ")}</p>
+                )}
+              </Link>
+            );
+          })
+        ))}
+
+      {mode === "upcoming" && data!.services.length === 0 && (
         <EmptyState
           icon={<CalendarDays />}
           title="No published services yet"
           body="Once a rota is published, the full team schedule appears here."
         />
-      ) : (
+      )}
+      {mode === "upcoming" &&
         data!.services.map((s) => {
           const rota = (data!.byService.get(s.id) ?? []).sort(
             (a, b) =>
@@ -97,8 +188,7 @@ export default function Schedule() {
               </dl>
             </Card>
           );
-        })
-      )}
+        })}
     </div>
   );
 }

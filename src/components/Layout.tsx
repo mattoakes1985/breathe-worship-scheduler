@@ -91,7 +91,7 @@ export default function Layout() {
   return (
     <div className="min-h-dvh flex">
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex flex-col w-60 border-r border-line bg-surface p-4 gap-1 sticky top-0 h-dvh">
+      <aside className="hidden md:flex flex-col w-60 border-r glass-bar p-4 gap-1 sticky top-0 h-dvh">
         <img
           src={dark ? "/brand/breathe-all-white.png" : "/brand/breathe-black-colour-cropped.png"}
           alt="Breathe Worship"
@@ -133,7 +133,7 @@ export default function Layout() {
 
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
-        <header className="md:hidden sticky top-0 z-40 flex items-center justify-between bg-surface/90 backdrop-blur border-b border-line px-4 h-14">
+        <header className="md:hidden sticky top-0 z-40 flex items-center justify-between glass-bar border-b px-4 h-14">
           <img
             src={dark ? "/brand/breathe-all-white.png" : "/brand/breathe-black-colour-cropped.png"}
             alt="Breathe Worship"
@@ -181,7 +181,7 @@ export default function Layout() {
         </main>
 
         {/* Mobile bottom tab bar — 44px+ targets (§8.2) */}
-        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-line flex pb-[env(safe-area-inset-bottom)]">
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 glass-bar border-t flex pb-[env(safe-area-inset-bottom)]">
           {tabs.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}

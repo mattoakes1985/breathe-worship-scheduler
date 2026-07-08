@@ -152,6 +152,13 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **PRD reference:** §6.5 (SCHED-4)
 - **Status:** Confirmed (no change made)
 
+## [2026-07-08] "Make it awesome" batch: glass UI, full history import, intel, calendar/reminders
+- **Decision:** (a) §10.4's "real photography" direction replaced by a glass-UI aesthetic (translucent blurred surfaces over ambient brand-gradient orbs) at Matt's explicit request — this supersedes the photography line, not the rest of §10. (b) Full historical import from the rota spreadsheet: 254 completed services (May 2021–Jul 2026), 947 setlist rows, and 1,884 person-level records staged in a new `legacy_assignments` table (migration 00008) with a `claim_legacy_history` RPC — when a volunteer signs up, admin links their spreadsheet name(s) from People and their history materialises as real assignments (stats + fairness warm-start). Person-level rows deliberately NOT auto-converted: profiles require real auth users. (c) Song intel for leads: sung-count/last-sung shown in planner + library, "not sung in 90 days" filter. (d) Daily reminder cron via pg_cron (migration 00009), per-volunteer iCal feed (`my-rota` Edge Function, token-auth, deployed), WhatsApp share + print run sheet on service detail. (e) Resend email dispatch function written but NOT deployed — blocked on Matt creating a Resend account/API key.
+- **Known data caveats:** five 2021 sheet tabs (Jul–Nov 2021) use a third layout and were skipped; ~10 dates with two same-day historical services had setlists/people attached to both; historical services all default to 10:30 start.
+- **Made by:** Matt (direction), Fable 5 (implementation)
+- **PRD reference:** §10.4 (superseded in part), §12, Phase 3 items pulled forward (iCal)
+- **Status:** Confirmed
+
 ## [2026-07-05] Multi-agent execution plan added
 - **Decision:** PRD §18 defines a 6-agent roster (Backend/Schema, Design System, three frontend agents split by feature area, QA/DevOps), three shared contract artifacts, and a "lock the contract, then parallelize" rule as the core safeguard against agents colliding.
 - **Why:** Matt requested the PRD be optimized for a multi-agent AI build team rather than assuming one agent builds serially.

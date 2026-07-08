@@ -19,7 +19,7 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
   const { data } = useQuery({
     queryKey: ["service-planner", serviceId],
     queryFn: async () => {
-      const [songs, library, order] = await Promise.all([
+      const [songs, library, order, usage] = await Promise.all([
         supabase
           .from("service_songs")
           .select("*, songs(title,artist,default_key,male_key)")
@@ -27,11 +27,24 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
           .order("order_index"),
         supabase.from("songs").select("*").eq("is_active", true).order("title"),
         supabase.from("service_order_items").select("*").eq("service_id", serviceId).order("order_index"),
+        // Song intel: full usage history (incl. imported 2021-2026 spreadsheet data)
+        supabase
+          .from("service_songs")
+          .select("song_id, services!inner(service_date)")
+          .lte("services.service_date", new Date().toISOString().slice(0, 10)),
       ]);
+      const intel = new Map<string, { count: number; last: string }>();
+      for (const u of usage.data ?? []) {
+        const d = (u.services as { service_date: string }).service_date;
+        const cur = intel.get(u.song_id);
+        if (!cur) intel.set(u.song_id, { count: 1, last: d });
+        else intel.set(u.song_id, { count: cur.count + 1, last: d > cur.last ? d : cur.last });
+      }
       return {
         setList: songs.data ?? [],
         library: (library.data ?? []) as Tables<"songs">[],
         order: order.data ?? [],
+        intel,
       };
     },
   });
@@ -227,28 +240,38 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
           autoFocus
         />
         <ul className="space-y-1.5 max-h-72 overflow-y-auto">
-          {filteredLibrary.map((s) => (
-            <li key={s.id}>
-              <button
-                className="w-full text-left card p-3 flex items-center justify-between hover:shadow-raised transition-shadow"
-                onClick={() => addSong.mutate(s.id)}
-                disabled={addSong.isPending}
-              >
-                <span>
-                  <span className="block font-semibold text-sm">{s.title}</span>
-                  <span className="block text-faint text-xs">{s.artist ?? ""}</span>
-                </span>
-                <span className="chip bg-accent-soft text-accent-strong">
-                  {[
-                    s.default_key ? `Female ${s.default_key}` : null,
-                    s.male_key ? `Male ${s.male_key}` : null,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ") || "no key"}
-                </span>
-              </button>
-            </li>
-          ))}
+          {filteredLibrary.map((s) => {
+            const use = data.intel.get(s.id);
+            const weeksAgo = use ? Math.round((Date.now() - new Date(use.last).getTime()) / 6048e5) : null;
+            return (
+              <li key={s.id}>
+                <button
+                  className="w-full text-left card p-3 flex items-center justify-between hover:shadow-raised transition-shadow"
+                  onClick={() => addSong.mutate(s.id)}
+                  disabled={addSong.isPending}
+                >
+                  <span className="min-w-0">
+                    <span className="block font-semibold text-sm truncate">{s.title}</span>
+                    <span className={`block text-xs ${weeksAgo !== null && weeksAgo >= 13 ? "text-warning" : "text-faint"}`}>
+                      {use
+                        ? `Sung ${use.count}× · last ${weeksAgo === 0 ? "this week" : `${weeksAgo}w ago`}${
+                            weeksAgo !== null && weeksAgo >= 13 ? " · due a comeback?" : ""
+                          }`
+                        : "Never sung — brand new"}
+                    </span>
+                  </span>
+                  <span className="chip bg-accent-soft text-accent-strong shrink-0">
+                    {[
+                      s.default_key ? `Female ${s.default_key}` : null,
+                      s.male_key ? `Male ${s.male_key}` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ") || "no key"}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       </Modal>
 

@@ -14,6 +14,7 @@ import Stats from "./pages/Stats";
 import TeamLeadDashboard from "./features/scheduling/TeamLeadDashboard";
 import RotaBuilder from "./features/scheduling/RotaBuilder";
 import Songs from "./features/worship-planning/Songs";
+import SongInsights from "./features/worship-planning/SongInsights";
 import AdminDashboard from "./features/admin/AdminDashboard";
 import People from "./features/admin/People";
 import RolesAdmin from "./features/admin/RolesAdmin";
@@ -63,6 +64,14 @@ export default function App() {
           element={
             <ProtectedRoute requireTeamLead>
               <Songs />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/team-lead/songs/insights"
+          element={
+            <ProtectedRoute requireTeamLead>
+              <SongInsights />
             </ProtectedRoute>
           }
         />

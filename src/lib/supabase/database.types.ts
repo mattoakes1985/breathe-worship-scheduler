@@ -283,6 +283,55 @@ export type Database = {
         }
         Relationships: []
       }
+      legacy_assignments: {
+        Row: {
+          claimed_profile_id: string | null
+          created_at: string
+          id: string
+          person_name: string
+          role_id: string | null
+          service_id: string
+        }
+        Insert: {
+          claimed_profile_id?: string | null
+          created_at?: string
+          id?: string
+          person_name: string
+          role_id?: string | null
+          service_id: string
+        }
+        Update: {
+          claimed_profile_id?: string | null
+          created_at?: string
+          id?: string
+          person_name?: string
+          role_id?: string | null
+          service_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "legacy_assignments_claimed_profile_id_fkey"
+            columns: ["claimed_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_assignments_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_preferences: {
         Row: {
           email_enabled: boolean
@@ -366,6 +415,7 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          calendar_token: string
           created_at: string
           email: string
           full_name: string
@@ -379,6 +429,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          calendar_token?: string
           created_at?: string
           email: string
           full_name: string
@@ -392,6 +443,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          calendar_token?: string
           created_at?: string
           email?: string
           full_name?: string
@@ -1011,6 +1063,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_legacy_history: {
+        Args: { p_person_name: string; p_profile_id: string }
+        Returns: number
+      }
       claim_swap: { Args: { p_swap_id: string }; Returns: undefined }
       erase_profile_personal_data: {
         Args: { p_profile_id: string }

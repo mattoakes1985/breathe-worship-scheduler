@@ -175,28 +175,35 @@ export default function Dashboard() {
         )}
       </section>
 
-      {/* Personal stats widget (§6.11) — framed against own preference, never peers */}
-      <section aria-label="Your serving">
-        <Link to="/stats" className="card block p-4 hover:shadow-raised transition-shadow">
-          <div className="flex items-center gap-3">
-            <span className="bg-brand-gradient text-white rounded-md p-2">
-              <PartyPopper size={18} />
-            </span>
-            <div className="flex-1">
-              <p className="font-semibold text-sm">
-                {cap != null
-                  ? served >= cap
-                    ? `You've served ${served} of the ${cap} times you wanted to this month — thank you. Enjoy being in the congregation.`
-                    : `You've served ${served} of the ${cap} times you wanted to this month.`
-                  : served > 0
-                    ? `You've served ${served} time${served === 1 ? "" : "s"} this month — thank you.`
-                    : "Your serving story lives here — streaks, milestones and more."}
-              </p>
-              <p className="text-soft text-xs mt-0.5">See your serving story →</p>
+      {/* Personal stats widget (§6.11) — full card when there's activity,
+          a quiet one-line link when there isn't. */}
+      {Number(data?.stats?.served_total ?? 0) > 0 ? (
+        <section aria-label="Your serving">
+          <Link to="/stats" className="card block p-4 hover:shadow-raised transition-shadow">
+            <div className="flex items-center gap-3">
+              <span className="bg-brand-gradient text-white rounded-md p-2">
+                <PartyPopper size={18} />
+              </span>
+              <div className="flex-1">
+                <p className="font-semibold text-sm">
+                  {cap != null
+                    ? served >= cap
+                      ? `You've served ${served} of the ${cap} times you wanted to this month — thank you. Enjoy being in the congregation.`
+                      : `You've served ${served} of the ${cap} times you wanted to this month.`
+                    : `You've served ${served} time${served === 1 ? "" : "s"} this month · ${data?.stats?.served_total} all time.`}
+                </p>
+                <p className="text-soft text-xs mt-0.5">See your serving story →</p>
+              </div>
             </div>
-          </div>
-        </Link>
-      </section>
+          </Link>
+        </section>
+      ) : (
+        <p className="text-center">
+          <Link to="/stats" className="text-faint text-xs hover:text-soft transition-colors">
+            Your serving story →
+          </Link>
+        </p>
+      )}
 
       {/* Quick links — the only route to lead/admin/preferences on mobile */}
       <section aria-label="Quick links" className="md:hidden">

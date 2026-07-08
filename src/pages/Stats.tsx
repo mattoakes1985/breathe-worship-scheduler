@@ -1,13 +1,16 @@
 // §6.11 STAT-1–4: private, personal, non-competitive serving stats.
 // The Strava-reference screen — confident numbers, generous whitespace,
 // framed only against the volunteer's own stated preference. Never a leaderboard.
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import confetti from "canvas-confetti";
 import { Award, CalendarHeart, Flame, HeartHandshake } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
+import { useAuth } from "@/context/AuthContext";
 import { Card, PageHeader, Spinner } from "@/components/ui";
-import { formatDate } from "@/lib/format";
+import { BarList, ChartCard, ColumnChart } from "@/components/charts";
+import { formatDate, formatDateShort } from "@/lib/format";
 
 interface Stats {
   served_this_month: number;
@@ -22,7 +25,71 @@ interface Stats {
   preferred_period_type: string | null;
 }
 
+interface ServeRow {
+  service_date: string;
+  role: string;
+  title: string;
+  service_id: string;
+}
+
 export default function Stats() {
+  const { session } = useAuth();
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
+
+  // Full personal serving history (incl. claimed spreadsheet years) for the visuals
+  const { data: history } = useQuery({
+    queryKey: ["my-serve-history"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("assignments")
+        .select("status, roles(name), services!inner(id,title,service_date,status)")
+        .eq("profile_id", session!.user.id)
+        .in("status", ["confirmed", "substituted"]);
+      return (data ?? [])
+        .filter((a) => {
+          const s = a.services as { status: string; service_date: string };
+          return ["published", "completed"].includes(s.status) && s.service_date <= new Date().toISOString().slice(0, 10);
+        })
+        .map((a) => {
+          const s = a.services as { id: string; title: string; service_date: string };
+          return {
+            service_date: s.service_date,
+            title: s.title,
+            service_id: s.id,
+            role: (a.roles as { name: string } | null)?.name ?? "Serving",
+          } as ServeRow;
+        })
+        .sort((a, b) => a.service_date.localeCompare(b.service_date));
+    },
+  });
+
+  const monthly = useMemo(() => {
+    const months: { key: string; label: string; value: number }[] = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toISOString().slice(0, 7);
+      months.push({
+        key,
+        label: d.toLocaleDateString("en-GB", { month: "short" }),
+        value: (history ?? []).filter((h) => h.service_date.startsWith(key)).length,
+      });
+    }
+    return months;
+  }, [history]);
+
+  const roleSplit = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const h of history ?? []) counts.set(h.role, (counts.get(h.role) ?? 0) + 1);
+    return [...counts.entries()]
+      .map(([role, n]) => ({ key: role, label: role, value: n }))
+      .sort((a, b) => b.value - a.value);
+  }, [history]);
+
+  const monthServices = selectedMonth
+    ? (history ?? []).filter((h) => h.service_date.startsWith(selectedMonth)).reverse()
+    : [];
+
   const { data, isLoading } = useQuery({
     queryKey: ["my-stats"],
     queryFn: async () => {
@@ -103,6 +170,37 @@ export default function Stats() {
         />
         <StatCard label="All time" value={s.served_total} sub={s.first_served_on ? `since ${formatDate(s.first_served_on)}` : undefined} />
       </div>
+
+      {(history ?? []).length > 0 && (
+        <>
+          <ChartCard title="Your year in serving" sub="Tap a month to see where you served.">
+            <ColumnChart data={monthly} selected={selectedMonth} onSelect={(k) => setSelectedMonth(k === selectedMonth ? null : k)} />
+            {selectedMonth && monthServices.length > 0 && (
+              <ul className="mt-3 divide-y divide-line border-t border-line">
+                {monthServices.map((h, i) => (
+                  <li key={i}>
+                    <Link to={`/services/${h.service_id}`} className="flex items-center justify-between py-2 text-sm hover:text-accent-strong">
+                      <span className="truncate">{h.title}</span>
+                      <span className="text-faint text-xs shrink-0 ml-2">
+                        {h.role} · {formatDateShort(h.service_date)}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {selectedMonth && monthServices.length === 0 && (
+              <p className="text-faint text-sm mt-3">A quiet month — nothing served.</p>
+            )}
+          </ChartCard>
+
+          {roleSplit.length > 0 && (
+            <ChartCard title="What you play" sub={`Across ${history!.length} services`}>
+              <BarList data={roleSplit} suffix="×" />
+            </ChartCard>
+          )}
+        </>
+      )}
 
       <Card>
         <div className="flex items-center gap-3 mb-2">

@@ -165,7 +165,8 @@ export function Modal({
       aria-label={title}
     >
       <div
-        className="bg-surface w-full sm:max-w-lg rounded-t-lg sm:rounded-lg shadow-raised max-h-[90vh] overflow-y-auto"
+        className="bg-surface/60 backdrop-blur-2xl border border-white/15 dark:border-white/5 w-full sm:max-w-lg rounded-t-lg sm:rounded-lg shadow-raised max-h-[90vh] overflow-y-auto"
+        style={{ backgroundImage: "linear-gradient(160deg, rgb(255 255 255 / 0.08), transparent 50%)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 pt-4 pb-2">

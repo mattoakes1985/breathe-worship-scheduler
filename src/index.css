@@ -53,6 +53,33 @@
   body {
     @apply bg-bg text-ink font-body antialiased;
     font-size: 16px;
+    position: relative;
+    min-height: 100dvh;
+  }
+  /* Glass UI: ambient brand-gradient orbs behind everything (Matt, 2026-07-06).
+     Fixed + non-interactive; blurred surfaces above pick up the colour. */
+  /* Full-viewport colour field: a diagonal brand wash covering EVERYTHING,
+     with brighter orbs on top. Glass only reads as glass when there is
+     colour behind every surface — corner-only orbs left the middle flat. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(50rem 50rem at 85% -5%, rgb(38 89 168 / 0.42), transparent 65%),
+      radial-gradient(44rem 44rem at -10% 40%, rgb(31 181 170 / 0.38), transparent 65%),
+      radial-gradient(48rem 48rem at 60% 108%, rgb(90 185 70 / 0.32), transparent 65%),
+      linear-gradient(120deg, rgb(38 89 168 / 0.16) 0%, rgb(31 181 170 / 0.12) 45%, rgb(90 185 70 / 0.14) 100%);
+  }
+  .dark body::before {
+    background:
+      radial-gradient(50rem 50rem at 85% -5%, rgb(70 140 240 / 0.60), transparent 65%),
+      radial-gradient(44rem 44rem at -10% 40%, rgb(43 210 198 / 0.48), transparent 65%),
+      radial-gradient(48rem 48rem at 60% 108%, rgb(115 215 95 / 0.40), transparent 65%),
+      radial-gradient(30rem 22rem at 50% 55%, rgb(43 200 190 / 0.18), transparent 70%),
+      linear-gradient(120deg, rgb(38 89 168 / 0.32) 0%, rgb(24 120 112 / 0.24) 45%, rgb(60 120 45 / 0.26) 100%);
   }
   h1, h2, h3 {
     @apply font-display;
@@ -67,8 +94,44 @@
 }
 
 @layer components {
+  /* Glass surfaces: translucent + blurred, hairline light border + top sheen */
+  /* Raw CSS on purpose: no Tailwind pipeline between us and the glass.
+     Explicit -webkit- prefix (Safari) + saturate() so the blur visibly
+     pulls colour out of the wash behind it. */
   .card {
-    @apply bg-surface border border-line rounded-lg shadow-card;
+    position: relative;
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.18); /* whisper, not an outline */
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0.08) 55%),
+      rgba(255, 255, 255, 0.22);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    backdrop-filter: blur(22px) saturate(1.7);
+    /* Edge definition comes from the inset light catch + lift shadow */
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.45) inset,
+      0 -1px 0 rgba(255, 255, 255, 0.12) inset,
+      0 10px 36px rgba(34, 31, 31, 0.14);
+  }
+  .dark .card {
+    border-color: rgba(255, 255, 255, 0.06);
+    background:
+      linear-gradient(160deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02) 55%),
+      rgba(28, 30, 30, 0.30);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.10) inset,
+      0 -1px 0 rgba(255, 255, 255, 0.03) inset,
+      0 10px 36px rgba(0, 0, 0, 0.5);
+  }
+  .glass-bar {
+    border-color: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.30);
+    -webkit-backdrop-filter: blur(22px) saturate(1.7);
+    backdrop-filter: blur(22px) saturate(1.7);
+  }
+  .dark .glass-bar {
+    border-color: rgba(255, 255, 255, 0.05);
+    background: rgba(24, 26, 26, 0.35);
   }
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-md px-4 font-semibold text-sm
@@ -88,10 +151,19 @@
     @apply btn bg-danger text-white hover:opacity-90;
   }
   .input {
-    @apply w-full rounded-md border border-line bg-surface px-3.5 text-ink placeholder-faint
-      min-h-[44px] text-base focus:border-accent focus:ring-1 focus:ring-accent outline-none;
+    @apply w-full rounded-md border border-line bg-surface/70 backdrop-blur-sm px-3.5 text-ink
+      placeholder-faint min-h-[44px] text-base focus:border-accent focus:ring-1 focus:ring-accent
+      outline-none;
   }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold;
   }
+}
+
+/* Print run sheet (ServiceDetail): hide chrome, flatten glass */
+@media print {
+  aside, header, nav, .print\:hidden { display: none !important; }
+  body::before { display: none; }
+  .card { box-shadow: none; backdrop-filter: none; background: white; border-color: #ddd; }
+  main { max-width: 100% !important; padding: 0 !important; }
 }

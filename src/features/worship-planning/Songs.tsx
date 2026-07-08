@@ -1,5 +1,6 @@
 // WOR-1: song library — core fields, external links, archive not delete.
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Music, Plus, Search } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
@@ -15,11 +16,31 @@ export default function Songs() {
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Song | "new" | null>(null);
 
+  const [staleOnly, setStaleOnly] = useState(false);
+
   const { data: songs, isLoading } = useQuery({
     queryKey: ["songs"],
     queryFn: async () => {
       const { data } = await supabase.from("songs").select("*").eq("is_active", true).order("title");
       return (data ?? []) as Song[];
+    },
+  });
+
+  const { data: intel } = useQuery({
+    queryKey: ["song-intel"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("service_songs")
+        .select("song_id, services!inner(service_date)")
+        .lte("services.service_date", new Date().toISOString().slice(0, 10));
+      const m = new Map<string, { count: number; last: string }>();
+      for (const u of data ?? []) {
+        const d = (u.services as { service_date: string }).service_date;
+        const cur = m.get(u.song_id);
+        if (!cur) m.set(u.song_id, { count: 1, last: d });
+        else m.set(u.song_id, { count: cur.count + 1, last: d > cur.last ? d : cur.last });
+      }
+      return m;
     },
   });
 
@@ -50,14 +71,23 @@ export default function Songs() {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return songs ?? [];
-    return (songs ?? []).filter(
-      (s) =>
-        s.title.toLowerCase().includes(q) ||
-        (s.artist ?? "").toLowerCase().includes(q) ||
-        (s.tags ?? []).some((t) => t.toLowerCase().includes(q))
-    );
-  }, [songs, query]);
+    let list = songs ?? [];
+    if (q)
+      list = list.filter(
+        (s) =>
+          s.title.toLowerCase().includes(q) ||
+          (s.artist ?? "").toLowerCase().includes(q) ||
+          (s.tags ?? []).some((t) => t.toLowerCase().includes(q))
+      );
+    if (staleOnly && intel) {
+      const cutoff = new Date(Date.now() - 90 * 864e5).toISOString().slice(0, 10);
+      list = list.filter((s) => {
+        const u = intel.get(s.id);
+        return u && u.last < cutoff; // sung before, but not in the last 90 days
+      });
+    }
+    return list;
+  }, [songs, query, staleOnly, intel]);
 
   if (isLoading) return <Spinner label="Opening the song library…" />;
 
@@ -68,9 +98,14 @@ export default function Songs() {
         title="Song library"
         subtitle={`${songs?.length ?? 0} songs`}
         action={
-          <button className="btn-primary" onClick={() => setEditing("new")}>
-            <Plus size={16} /> Add song
-          </button>
+          <div className="flex gap-2">
+            <Link to="/team-lead/songs/insights" className="btn-secondary">
+              📊 Insights
+            </Link>
+            <button className="btn-primary" onClick={() => setEditing("new")}>
+              <Plus size={16} /> Add song
+            </button>
+          </div>
         }
       />
 
@@ -84,6 +119,12 @@ export default function Songs() {
           aria-label="Search songs"
         />
       </div>
+      <button
+        className={`chip min-h-[40px] ${staleOnly ? "bg-warning-soft text-warning" : "bg-raised text-soft"}`}
+        onClick={() => setStaleOnly((s) => !s)}
+      >
+        💤 Due a comeback (not sung in 90+ days)
+      </button>
 
       {filtered.length === 0 ? (
         <EmptyState
@@ -113,6 +154,10 @@ export default function Songs() {
                   {s.tempo_bpm ? ` · ${s.tempo_bpm} bpm` : ""}
                   {s.time_signature ? ` · ${s.time_signature}` : ""}
                   {(s.tags ?? []).length > 0 && ` · ${(s.tags ?? []).join(", ")}`}
+                  {(() => {
+                    const u = intel?.get(s.id);
+                    return u ? ` · sung ${u.count}×, last ${new Date(u.last).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" })}` : "";
+                  })()}
                 </p>
               </div>
               {(s.default_key || s.male_key) && (
