@@ -7,10 +7,14 @@ const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 if (!url || !anonKey) {
-  // Fail loudly in dev; a blank screen with a console hint is worse.
-  console.error(
-    "Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY — copy .env.example to .env.local"
-  );
+  // A human-readable failure beats a blank white screen: createClient throws
+  // on a missing URL and would take the whole app down before first paint.
+  document.getElementById("root")!.innerHTML =
+    '<div style="font-family:system-ui;padding:3rem;text-align:center">' +
+    "<h1>Configuration problem</h1>" +
+    "<p>The app is missing its VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY environment variables.<br>" +
+    "If you deployed on Vercel: Settings → Environment Variables, then redeploy.</p></div>";
+  throw new Error("Missing Supabase environment variables");
 }
 
 export const supabase = createClient<Database>(url, anonKey, {

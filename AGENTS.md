@@ -24,6 +24,10 @@ Template for a new entry:
 
 ## Full Log
 
+### [2026-07-08 22:00] Fable 5 — resolution: PRODUCTION DEPLOY (§14 gate passed by Matt)
+
+Live at https://breathe-worship-scheduler.vercel.app (Vercel, free tier, deployed by Matt from GitHub main; serving verified). Pre-deploy: advisor sweep clean after migration 00011 (anon revokes + dup setlist cleanup), full readiness assessment delivered, feature check vs prior attempts + Planning Center documented in chat. Deferred by explicit decision: custom SMTP/Resend (blocked on church-domain permission — team-wide invites wait for it; Supabase built-in mailer suffices for the single QA tester), Playwright execution, Graphify dev-tooling evaluation (post-deploy, vet-first). Remaining runbook items for Matt: Supabase Site URL + redirect → production URL, leaked-password toggle, phone smoke test + PWA install, invite one tester and run §13 QA loop before mass onboarding, second admin account.
+
 Append new entries at the bottom, newest last. One entry per update. Suggested format:
 
 ```

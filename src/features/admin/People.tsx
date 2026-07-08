@@ -43,16 +43,32 @@ export default function People() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ["admin-people"] });
 
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [invitedName, setInvitedName] = useState("");
+
   const invite = useMutation({
     mutationFn: async (args: { email: string; fullName: string }) => {
-      const { data, error } = await supabase.functions.invoke("invite-volunteer", { body: args });
-      if (error) throw new Error("Invite failed — is the invite-volunteer Edge Function deployed?");
-      return data;
+      const { data, error } = await supabase.functions.invoke("invite-volunteer", {
+        body: { ...args, redirectTo: window.location.origin },
+      });
+      if (error) {
+        // Surface the function's real error body instead of a guess
+        const ctx = (error as { context?: Response }).context;
+        if (ctx) {
+          const body = await ctx.json().catch(() => null);
+          throw new Error(body?.error ?? error.message);
+        }
+        throw error;
+      }
+      if (data?.error) throw new Error(data.error);
+      return data as { inviteLink: string };
     },
-    onSuccess: () => {
+    onSuccess: (data, args) => {
       invalidate();
       setInviteOpen(false);
-      setMsg("Invite sent.");
+      setInviteLink(data.inviteLink);
+      setInvitedName(args.fullName);
+      setMsg(null);
     },
     onError: (e) => setMsg((e as Error).message),
   });
@@ -164,6 +180,35 @@ export default function People() {
         }
       />
       {msg && <p className="text-soft text-sm card p-3">{msg}</p>}
+
+      {inviteLink && (
+        <div className="card p-4">
+          <p className="font-semibold text-sm mb-1">Invite link for {invitedName} — send it to them yourself</p>
+          <p className="text-soft text-xs mb-2">
+            No email is sent automatically. Share this link by WhatsApp or text; it lets them set a
+            password and sign in. Treat it like a key — it's their account.
+          </p>
+          <div className="flex gap-2">
+            <input className="input text-xs" readOnly value={inviteLink} onFocus={(e) => e.target.select()} />
+            <button className="btn-secondary shrink-0" onClick={() => navigator.clipboard.writeText(inviteLink)}>
+              Copy
+            </button>
+            <a
+              className="btn-primary shrink-0"
+              href={`https://wa.me/?text=${encodeURIComponent(
+                `Hi ${invitedName.split(" ")[0]}! You're invited to the Breathe Worship rota app. Set up your account here: ${inviteLink}`
+              )}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              WhatsApp
+            </a>
+            <button className="btn-ghost shrink-0" onClick={() => setInviteLink(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
       <Card className="!p-0 divide-y divide-line">
         {data!.profiles.map((p) => {
