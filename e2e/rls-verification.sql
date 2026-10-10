@@ -2,7 +2,7 @@
 -- Run against staging with psql, impersonating roles via request.jwt.claims.
 -- Each block sets the JWT claims Supabase would set, then asserts visibility.
 --
--- Usage: replace :volunteer_a / :volunteer_b / :admin with real profile UUIDs
+-- Usage: replace :volunteer_a / :volunteer_b / :admin / :team_lead with real profile UUIDs
 -- from your staging seed, then run each check. Expected results in comments.
 
 -- 1. A volunteer cannot read another volunteer's availability responses.
@@ -123,4 +123,28 @@ select set_config('request.jwt.claims', json_build_object('sub', :'admin', 'role
 set local role authenticated;
 -- expected: DELETE 0 (restrictive policy) — songs are archived or merged, never removed
 -- delete from songs where id = :'any_song';
+rollback;
+
+-- 14. Planner (WO-3): the team list, availability imports, plans and rules are
+--     visible to admins and team leads only. A plain member sees nothing and
+--     cannot add people or run an import.
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'volunteer_a', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select (select count(*) from team_people) = 0
+   and (select count(*) from name_aliases) = 0
+   and (select count(*) from person_availability) = 0
+   and (select count(*) from availability_import_rows) = 0
+   and (select count(*) from rota_plan_slots) = 0
+   and (select count(*) from scheduling_rules) = 0
+   and (select count(*) from team_people_activity where last_served is not null) = 0 as pass_planner_private;
+-- expected: ERROR new row violates row-level security policy
+-- insert into team_people (team_id, display_name) select id, 'x' from teams limit 1;
+-- expected: ERROR 'Only a team lead or admin can import availability'
+-- select apply_availability_import('{"entries": []}');
+rollback;
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'team_lead', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select count(*) > 0 as pass_lead_sees_team_list from team_people;
 rollback;

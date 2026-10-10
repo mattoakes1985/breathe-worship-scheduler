@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-10 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00016 (contact privacy, service date fix, team list planner).
+// after migrations 00014-00018 (contact privacy, service dates, team list planner).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -256,6 +256,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_import_rows_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
           },
         ]
       }
@@ -589,6 +596,13 @@ export type Database = {
             referencedRelation: "team_people"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "name_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
+          },
         ]
       }
       notification_preferences: {
@@ -726,6 +740,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "person_availability_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
+          },
+          {
             foreignKeyName: "person_availability_service_id_fkey"
             columns: ["service_id"]
             isOneToOne: false
@@ -757,6 +778,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_roles_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
           },
           {
             foreignKeyName: "person_roles_role_id_fkey"
@@ -982,6 +1010,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "team_people"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_plan_slots_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
           },
           {
             foreignKeyName: "rota_plan_slots_role_id_fkey"
@@ -1985,6 +2020,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "team_people_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "team_people_activity"
+            referencedColumns: ["person_id"]
+          },
+          {
             foreignKeyName: "team_people_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: true
@@ -2123,8 +2165,18 @@ export type Database = {
         }
         Relationships: []
       }
+      team_people_activity: {
+        Row: {
+          last_served: string | null
+          person_id: string | null
+          serves_last_year: number | null
+          serves_total: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      apply_availability_import: { Args: { p: Json }; Returns: Json }
       archive_song_tag: { Args: { p_name: string }; Returns: number }
       array_replace_ci: {
         Args: { p_arr: string[]; p_new: string; p_old: string }
@@ -2191,6 +2243,10 @@ export type Database = {
         Returns: boolean
       }
       merge_songs: { Args: { p_keep: string; p_merge: string }; Returns: Json }
+      merge_team_people: {
+        Args: { p_keep: string; p_merge: string }
+        Returns: Json
+      }
       notify: {
         Args: {
           p_body: string

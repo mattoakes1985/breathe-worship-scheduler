@@ -6,6 +6,7 @@ import {
   Bell,
   CalendarCheck,
   CalendarDays,
+  CalendarRange,
   Home,
   LogOut,
   Moon,
@@ -83,6 +84,7 @@ export default function Layout() {
   const sideLinks = [
     ...tabs,
     ...(isTeamLead ? [{ to: "/team-lead", label: "Team Lead", icon: Users, end: false }] : []),
+    ...(isTeamLead || isAdmin ? [{ to: "/team-lead/planner", label: "Planner", icon: CalendarRange, end: false }] : []),
     ...(isTeamLead || isAdmin ? [{ to: "/team-lead/songs", label: "Songs", icon: Music, end: false }] : []),
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Shield, end: false }] : []),
     { to: "/profile/preferences", label: "Preferences", icon: Settings, end: false },

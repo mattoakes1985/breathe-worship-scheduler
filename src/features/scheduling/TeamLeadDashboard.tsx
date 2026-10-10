@@ -1,7 +1,7 @@
 // DASH-2: Team Lead dashboard — action items first, not just a calendar.
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CalendarPlus, ChevronRight, ClipboardList, Repeat } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CalendarRange, ChevronRight, ClipboardList, Repeat } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, PageHeader, Spinner, statusBadgeTone } from "@/components/ui";
 import { formatDate, todayISO } from "@/lib/format";
@@ -57,7 +57,14 @@ export default function TeamLeadDashboard() {
       <PageHeader title="Team Lead" subtitle="What needs your attention first." />
 
       {/* Action items */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <ActionCard
+          to="/team-lead/planner"
+          icon={<CalendarRange size={18} />}
+          tone="neutral"
+          label="Plan next month"
+          value={null}
+        />
         <ActionCard
           to="/swaps"
           icon={<Repeat size={18} />}

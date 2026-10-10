@@ -280,7 +280,7 @@ export function interpretForm(grid: Grid, today: Date = new Date()): Interpreted
     requestCol: requestCol >= 0 ? requestCol : null,
     submittedCol: submittedCol >= 0 ? submittedCol : null,
     dates,
-    entries: [...byKey.values()].map(({ _t: _ignored, ...e }) => e).sort((a, b) => a.rawName.localeCompare(b.rawName)),
+    entries: [...byKey.values()].map(({ _t: _ignored, ...e }) => e).sort((a, b) => a.rawName.localeCompare(b.rawName, undefined, { numeric: true, sensitivity: "base" })),
     month,
     problems,
   };
