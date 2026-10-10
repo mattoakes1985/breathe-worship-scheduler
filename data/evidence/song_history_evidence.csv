@@ -1,0 +1,177 @@
+title,app_female_key,app_male_key,app_bpm,app_ts,uploaded_sheet_bpm(UNRELIABLE),played_keys_in_setlists,played_bpm_mode,played_ts_mode,times_seen,bpm_check
+10000 Reasons,null,null,73,4/4,73,,,,0,no_history
+A Thousand Hallelujahs,Db,null,68,4/4,190,,,,0,no_history
+A Thousand Names,D,G,64,4/4,150,,,,0,no_history
+All about you,D,A,98,4/4,148,Ax2;Dx1,98,4/4,3,ok
+All hail king Jesus,A,C,68,4/4,142,Fx2,74,4/4,2,CONFLICT_verify
+All my thank yous,D or Db,G,,null,140,,,,0,no_history
+Always so good,E,C (B poss),73,4/4,139,Ex3;Cx1,73,4/4,4,ok
+Amazing Grace (My Chains are Gone),F,G,74,4/4,137,,,,0,no_history
+Another In The Fire,G,C,67,4/4,136,Cx1,67,4/4,1,ok
+Available,null,null,80,4/4,80,,,,0,no_history
+Awake My Soul,F,G,63,4/4,130,Fx3,127,4/4,3,half_double_time
+Beautiful Day,G,C,139,4/4,130,,,,0,no_history
+Because of Jesus,G,C (DA),67,4/4,128,,,,0,no_history
+Bless God,D,A,72,4/4,127,Ax1,73,4/4,1,ok
+Breakthrough Here,G,A,74,4/4,127,,,,0,no_history
+Breathe,E,null,58,4/4,126,,,,0,no_history
+Build my life,D,G,70,4/4,124,Dx1,70,4/4,1,ok
+Build your kingdom here,A,D,137,4/4,137,,,,0,no_history
+Can't help but worship,F,A,127,4/4,124,Ax1,127,4/4,1,ok
+Come to the altar,C,A,140,6/8,122,,,,0,no_history
+Cornerstone,null,C,71,4/4,122,,,,0,no_history
+Crowns down,F,A,74,4/4,120,Ax5;Fx1,72,4/4,6,ok
+Deep down,G,D,120,4/4,120,Dx1,120,,1,ok
+Deeper water,G,C,102,4/4,118,,,,0,no_history
+Do it again,null,Bb,86,4/4,86,,,,0,no_history
+Echo,F,A,72,4/4,116,,,,0,no_history
+Echoes (Till we see the other side),E,A/ G?,142,4/4,116,Ex1,142,4/4,1,ok
+Everything and nothing less,F,D,104,4/4,115,Fx1,72,4/4,1,CONFLICT_verify
+Faithful Now,E,null,74,4/4,114,Ex1,74,4/4,1,ok
+"Faithful then, faithful now",D,G,107,4/4,112,Gx7;Dx2,107,4/4,9,ok
+Fall,null,null,,null,,,,,0,no_history
+Fall like rain,F,A,72,4/4,110,,,,0,no_history
+Finished work,null,null,,null,107,,,,0,no_history
+Firm Foundation,C,G,75,3/8,104,Gx3;Cx1,75,6/8,4,ok
+Freedom (Hillsong),G,C,124,4/4,102,Ax2;Ex1,75,4/4,3,CONFLICT_verify
+Freedom is coming,G,D,94,4/4,100,Gx1,94,4/4,1,ok
+Fullness,E/F,A,70,4/4,98,,,,0,no_history
+Gift Carol,null,null,,null,,,,,0,no_history
+Give me Jesus,E,G / C(DA),70,4/4,98,Ex2;Cx1;Gx1,70,4/4,4,ok
+Give thanks to God,null,null,,null,,,,,0,no_history
+Glorious Day,F,C,72,4/4,95,Cx2;Dx1,110,4/4,3,CONFLICT_verify
+God I'm just grateful for you,,,,,94,Fx1,72,4/4,1,app_missing_bpm_use_history
+God So Loved,Bb,G,100,4/4,91,Gx4;Bbx2,100,4/4,6,ok
+Gone,D,G,,null,,,,,0,no_history
+Good Good Father,F,G,74,6/8,90,,,,0,no_history
+Good Grace,A,C/ D,110,4/4,86,Gx2,71,4/4,2,CONFLICT_verify
+Goodbye yesterday,F,G,71,4/4,82,Dx4;Gx1,75,4/4,5,CONFLICT_verify
+Goodness of God,F/G,A,63,4/4,82,Gx1,63,,1,ok
+Gratitude,F,A,52,6/8,82,Fx1;Ax1,52,6/8,2,ok
+Graves into Gardens,B,A,70,3/8,80,Ax1;Gx1,46,6/8,2,CONFLICT_verify
+Great Things (Worth it all),null,null,,null,,,,,0,no_history
+Hark Hallelujah,null,null,,null,,Dx1,127,,1,app_missing_bpm_use_history
+Heal our Land,null,null,,null,,,,,0,no_history
+Here Again,A,D,75,4/4,80,Cx2;Fx1,68,4/4,3,CONFLICT_verify
+Here I am Send Me,null,null,,null,,,,,0,no_history
+Highest one,G,A,70,4/4,79,,,,0,no_history
+Highest praise (we get low),E,G,72,4/4,79,Gx2;Ex1,72,4/4,3,ok
+Hindsight,null,null,,null,,,,,0,no_history
+Holy are you Lord,any- bridge song,C,68,4/4,77,,,,0,no_history
+Holy forever,F,C,68,4/4,77,Fx1,72,4/4,1,CONFLICT_verify
+Holy Spirit you are welcome here,D,null,72,4/4,77,,,,0,no_history
+House of Miracles,E,A,72,4/4,76,Ex2,72,4/4,2,ok
+House of the Lord,D,A,86,4/4,76,Dx3,86,4/4,3,ok
+How He loves,F,C,49,6/8,76,Cx2,49,6/8,2,ok
+I Got Saved,,,,,75,Cx4;Bx1,82,6/8,5,app_missing_bpm_use_history
+I know a name,E,A,58,6/8,75,Ax6;Ex3,58,6/8,9,ok
+I Speak Jesus,E,C,74,4/4,75,Ex2,74,4/4,2,ok
+I surrender all (BNL version),D,D,74,4/4,75,Cx1,74,4/4,1,ok
+I Thank God,F,B,72,4/4,75,Fx3;Gx1;Ax1,130,4/4,5,CONFLICT_verify
+I Will Boast,null,null,,null,,,,,0,no_history
+I've Got a Fire,,,,,75,Ex1;Fx1,150,4/4,2,app_missing_bpm_use_history
+In Jesus' Name (God of Possible),F,A,130,4/4,75,,,,0,no_history
+In the River,null,null,,null,,,,,0,no_history
+Jehovah,Eb,A,100,4/4,74,Ax5,100,4/4,5,ok
+Jesus be the name,,,,,74,Gx2,64,4/4,2,app_missing_bpm_use_history
+Jesus over everything,D,G,74,4/4,74,Dx1,74,4/4,1,ok
+Joy (what the world calls foolish),F,A,71,4/4,74,Fx3;Cx3;Ax1,124,4/4,7,CONFLICT_verify
+Joy of the Lord,null,null,,null,,,,,0,no_history
+King of Kings,D,F,68,4/4,74,Dx1,68,4/4,1,ok
+King of my heart,F,C,124,4/4,74,,,,0,no_history
+Kingdom Come (LC),null,null,,null,,,,,0,no_history
+Left it in the river,Ab,B?,98,4/4,74,Abx1,98,4/4,1,ok
+Light Up,F,Bb,75,4/4,74,,,,0,no_history
+Lion and the Lamb,F,A,90,4/4,74,,,,0,no_history
+Living hope,G,D,72,4/4,74,,,,0,no_history
+Look how he lifted me,B?,null,114,4/4,74,,,,0,no_history
+Love overcomes,null,null,,null,,,,,0,no_history
+Made for more,E,C,75,3/8,74,Cx4;Ax2,75,3/8,6,ok
+Make room,F,C,62,4/4,74,Cx2;Fx1,62,4/4,3,ok
+Make Us One,null,null,,null,,,,,0,no_history
+Man of Sorrows,null,null,,null,,,,,0,no_history
+Mercy,E,G,65,4/4,74,Ax1;Gx1,65,4/4,2,ok
+Mighty Cross,G,D,72,4/4,73,,,,0,no_history
+Mighty name of Jesus,F or Eb,A,72,4/4,73,Fx4;Ax2,72,4/4,6,ok
+Miracle in me,null,null,79,4/4,73,,,,0,no_history
+Miracles Happen,null,null,,null,,,,,0,no_history
+Move,E,C,120,4/4,73,,,,0,no_history
+My King forever,E,D (A- Dave),72,6/8,72.5,Ex3;Ax2,144,6/8,5,half_double_time
+Nailed to the cross,null,null,,null,,,,,0,no_history
+Name above all names,D,G,75,4/4,72,,,,0,no_history
+Never Let Me Go,null,null,,null,,,,,0,no_history
+New thing coming,Eb,A,91,4/4,72,Ax2;Ebx1,91,4/4,3,ok
+New Wine,D,G,77,4/4,72,,,,0,no_history
+No body,E,C,67,4/4,72,Ax2;Cx1,67,4/4,3,ok
+No longer slaves,Bb,F,74,4/4,72,Fx1,74,4/8,1,ok
+No one (Yahweh),E,G,136,4/4,72,Gx3;Ex1,136,4/4,4,ok
+None like you,G,C,76,6/8,72,,,,0,no_history
+O Come All Ye Faithful (His Name Shall Be),null,null,,null,,,,,0,no_history
+O Praise the Name (Anástasis),G,C,72,4/4,72,Cx1,72,4/4,1,ok
+Oceans,G,D,65,4/4,72,,,,0,no_history
+Only ever good,E,A,82,4/4,72,Ex6;Ax3,82,4/4,9,ok
+Open Heaven (River Wild),null,G,,null,,,,,0,no_history
+Overcome,null,null,,null,,,,,0,no_history
+Peace be still,null,null,,null,,,,,0,no_history
+Pour your spirit out,E/F,A,70,4/4,72,Ax1;Fx1,70,4/4,2,ok
+Praise God (Doxology),E,A/B,126,4/4,72,Ex2;Ax1,126,4/4,3,ok
+Praise the Lord Forever,,,,,72,Gx2,68,4/4,2,app_missing_bpm_use_history
+Praise!,D,E,127,4/4,72,Ex7;Dx1,127,4/4,8,ok
+Raise a hallelujah,Db,G,82,4/4,72,Dbx1,82,4/4,1,ok
+RATTLE!,G,Eb?,76,4/4,71,,,,0,no_history
+Real love,null,null,,null,,,,,0,no_history
+Reckless Love,C,F,56,6/8,71,,,,0,no_history
+Resurrecting,null,Ab,74,4/4,71,,,,0,no_history
+Resurrection Day,null,null,,null,,,,,0,no_history
+Same God,G,C,72,4/4,71,Cx1,72,4/4,1,ok
+See A Victory,F/G,A,77,4/4,71,,,,0,no_history
+See the Light,F,A,116,4/4,70,,,,0,no_history
+Shine for you,E,G,118,4/4,70,Ex3;Gx2,118,4/4,5,ok
+Simple Kingdom,G,C,190,6/8,70,Cx2,190,6/8,2,ok
+So so good,F,C,,null,70,Cx4;Gx1,116,4/4,5,app_missing_bpm_use_history
+So Will I (100 Billion X) (ST),null,null,,null,,,,,0,no_history
+Something has to break,null,null,,null,70,,,,0,no_history
+Stand in Your Love,C/ G,G,72,4/4,70,,,,0,no_history
+Stand Up,null,null,,null,,,,,0,no_history
+Surrounded (Fight My Battles),G,Bb,70,4/4,70,,,,0,no_history
+Take Courage,G,null,71,4/4,70,,,,0,no_history
+Take You at Your Word,G,C,115,4/4,69,Cx3,115,4/4,3,ok
+Thank God I'm free,NOT_IN_APP_SEED,,,,68,,,,0,no_history
+Thank you Jesus,null,null,,null,,,,,0,no_history
+That's my king,A,D,95,4/4,68,Dx8;Ax5,95,4/4,13,ok
+That's the Power,Eb,Bb (A Dave),73,4/4,68,Ax1,74,4/4,1,ok
+That's who I praise,A,D,112,4/4,68,Dx5;Ax4,112,4/4,9,ok
+The Blessing,B,G,70,4/4,68,Gx1,70,4/4,1,ok
+The Blood,,,,,68,Ax2;Fx1;Cx1,74,4/4,4,app_missing_bpm_use_history
+The Church will Rise,D,A,77,4/4,68,Gx2;Ax2;Dx1,77,4/4,5,ok
+The In-between,F,A,74,4/4,68,,,,0,no_history
+The King is in the room,Bb,G,,null,68,Gx1,98,4/4,1,app_missing_bpm_use_history
+The Way (New Horizon),Eb,Bb,80,4/4,68,Ax1,80,4/4,1,ok
+There is a cloud,G,D,68,6/8,67,,,,0,no_history
+This I Believe (The Creed),null,null,,null,,,,,0,no_history
+This is our God,G,C,80,4/4,67,Gx2;Cx2,80,4/4,4,ok
+This is the kingdom,E,A,49,6/8,67,Ax1,73,6/8,1,CONFLICT_verify
+Tremble,C,F,74,4/4,66,,,,0,no_history
+Waiting here for you,C,A,66,4/4,66,,,,0,no_history
+Way Maker,B,G (DA - D),68,4/4,66,Gx1,68,4/4,1,ok
+We believe,F,C,66,4/4,65,Fx1,66,4/4,1,ok
+Weapon,E,B,73,4/4,65,,,,0,no_history
+What a Beautiful Name,D,null,68,4/4,64,Dx1,68,4/4,1,ok
+What a God,,,,,64,Ax3;Abx1;Gx1,79,4/4,5,app_missing_bpm_use_history
+What He's done,D/Db,A,71,4/4,63,Dbx1;Dx1,71,4/4,2,ok
+What I See,E,A/C,148,4/4,63,Ax2,148,4/4,2,ok
+Who else?,F/G,C,68,4/4,62,Gx1;Cx1;Fx1,68,4/4,3,ok
+Who You Say I Am,G,C,58,6/8,58,Gx2;Cx1,58,6/8,3,ok
+Wind of your spirit,E,A,66,4/4,58,,,,0,no_history
+Won't Stop Now,D,G,122,4/4,58,,,,0,no_history
+Words we'll sing forever,F,A,73,4/4,56,Ax3,73,4/4,3,ok
+World Outside Your Window,G,A,137,4/4,52,,,,0,no_history
+Worship!,C,D,130,4/4,49,Dx3;Cx3,130,4/4,6,ok
+Worthy of it all,E,null,69,4/4,49,Ex1,69,4/4,1,ok
+Yahweh (Thrive worship),E,G,76,6/8,,Gx4;Ex3,152,6/8,7,half_double_time
+Yes and Amen,A,D,122,4/4,,,,,0,no_history
+Yes I Will,G,A,75,4/4,,Gx1,75,4/4,1,ok
+You are life,null,null,,null,,,,,0,no_history
+You Say,F,null,74,4/4,,Fx1,74,4/4,1,ok
+Yours (Glory and Praise),null,null,,null,,,,,0,no_history
+Zeal (ST),null,null,,null,,,,,0,no_history

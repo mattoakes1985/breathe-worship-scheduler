@@ -165,3 +165,24 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Made by:** Matt (requirement), structure proposed by Orchestrator
 - **PRD reference:** §18
 - **Status:** Confirmed
+
+## [2026-10-10] Direction after live review: songs vault, security gate, monthly planner, iKnow hand-off
+- **Decision:** (1) The app becomes the single master for the song library; the spreadsheet is retired after a final reconcile (WO-1, first priority — the current spreadsheet "gets corrupted a lot"). (2) No new volunteers are invited until WO-2 (profile contact/calendar-token exposure fix + security headers) ships. (3) This app is used "in the background" for planning: availability is collected in-app (replacing the MS Form) and a new monthly auto-planner builds the rota with rules Matt applies by hand today (no consecutive weeks, household/family serving, existing caps and preferences). (4) iKnow Church stays the church's system of record: output is a copy-ready "iKnow view"/CSV for manual re-keying; no sync. (5) Auto-scheduling is algorithm-only; no LLM, consistent with D4 (no paid API spend). An LLM layer is explicitly deferred, not rejected.
+- **Why:** Live review found any active member can read all profiles' email/phone/notes/calendar_token (RLS policy "active members read profiles", no column limits). Matt confirmed the church now uses iKnow Church for scheduling, but its rota entry is poor for the team's real allocation process.
+- **Made by:** Matt (direction), Orchestrator (sequencing and work orders)
+- **PRD reference:** extends §6.4, §6.5, §6.7, §8.3; D4 unchanged; §5.2 "no integrations" unchanged (hand-off only)
+- **Status:** Confirmed — work orders WO-1..4 in AGENTS.md
+
+## [2026-10-10] Song data: uploaded sheet is the corrupted copy; app copy is cleaner
+- **Decision:** Do not re-import "Sunday Scheduling for Music Team.xlsx" over the app's song library. Its BPM column is sorted independently of titles; the app's earlier import agrees with played history far more often (65/83 vs 16/83 songs). History-derived evidence is in `data/evidence/song_history_evidence.csv`; conflicts go to a human "Needs checking" list. Requirements widened to: master song DB with search/sort/filter by key, artist, genre/tags, BPM, time signature; MS Forms import + auto-populate; schedule view/export in the existing sheet layout; iKnow export deferred. Source spreadsheets (volunteer names) live in `data/private/` and are gitignored.
+- **Why:** Verified by parsing 301 setlist lines across the monthly tabs and comparing both copies.
+- **Made by:** Matt (requirements), Orchestrator (analysis)
+- **PRD reference:** §6.7 (WOR-1..3 extended), §6.4/6.5, §8.3
+- **Status:** Confirmed
+
+## [2026-10-10] First scheduling rules + natural-language rules deferred
+- **Decision:** Matt's first three rules adopted as configurable rules: (1) core roles (Lead, Drummer, Sound Engineer, and at least one of Acoustic/Electric/Keys) are scheduled first and a gap is reported loudly; (2) avoid using the same person every week or on consecutive weeks when another eligible person is available, but allow it when there is no alternative; (3) prefer same-surname people on the same service (suggested households, admin-confirmed). Rules are stored as structured data with plain-English labels and an editable priority order. Natural-language rule entry is wanted but **deferred**: it requires an LLM call, which conflicts with D4 (no paid API spend) unless Matt opts in; if added later the LLM only proposes a structured rule for human confirmation and never schedules.
+- **Why:** Keeps the planner deterministic and testable while meeting the "change rules without code" need. Surname is a weak family signal, so it only seeds suggestions.
+- **Made by:** Matt (rules), Orchestrator (precedence + structure)
+- **PRD reference:** §6.5 (SCHED-2/7 extended), D4 unchanged
+- **Status:** Confirmed; "any one of Acoustic/Electric/Keys" reading to be confirmed

@@ -23,3 +23,6 @@ supabase/.temp/
 # Logs
 *.log
 npm-debug.log*
+
+# Personal data (volunteer names/emails) - never commit
+data/private/
