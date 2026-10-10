@@ -92,6 +92,8 @@ describe("filters", () => {
     expect(sortSongs(withBlank, { key: "bpm", dir: "asc" }).slice(-1)[0].title).toBe("No BPM");
     expect(sortSongs(withBlank, { key: "bpm", dir: "desc" }).slice(-1)[0].title).toBe("No BPM");
     expect(sortSongs(library, { key: "times_sung", dir: "desc" })[0].title).toBe("Praise!");
+    // male key: D (Oceans), E (Praise!), A (Jehovah) in C-based order; blanks last
+    expect(sortSongs(library.filter((s) => s.is_active), { key: "male_key", dir: "asc" }).map((s) => s.male_key)).toEqual(["D", "E", "A", null, null]);
   });
 });
 

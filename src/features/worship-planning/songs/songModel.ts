@@ -103,7 +103,7 @@ export interface SongFilters {
   swung?: boolean;
 }
 
-export type SortKey = "title" | "artist" | "bpm" | "female_key" | "last_sung" | "times_sung" | "updated";
+export type SortKey = "title" | "artist" | "bpm" | "female_key" | "male_key" | "last_sung" | "times_sung" | "updated";
 export interface SortSpec {
   key: SortKey;
   dir: "asc" | "desc";
@@ -113,6 +113,7 @@ export const SORT_LABEL: Record<SortKey, string> = {
   artist: "Artist",
   bpm: "BPM",
   female_key: "Female key",
+  male_key: "Male key",
   last_sung: "Last sung",
   times_sung: "Times sung",
   updated: "Recently edited",
@@ -203,6 +204,7 @@ export function sortSongs(list: SongWithStats[], sort: SortSpec): SongWithStats[
       case "artist": return s.artist ? lc(s.artist) : null;
       case "bpm": return s.tempo_bpm;
       case "female_key": return s.default_key ? keyRank(s.default_key) : null;
+      case "male_key": return s.male_key ? keyRank(s.male_key) : null;
       case "last_sung": return s.stats.last_sung;
       case "times_sung": return s.stats.times_sung;
       case "updated": return s.updated_at;
