@@ -14,15 +14,18 @@ Deno.serve(async () => {
   // in_app rows are the queue; sent_via flips to 'email' once dispatched
   const { data: pending } = await admin
     .from("notifications")
-    .select("id, title, body, profile_id, profiles!inner(email, is_active), created_at")
+    .select("id, title, body, profile_id, profiles!inner(is_active), created_at")
     .eq("sent_via", "in_app")
     .gte("created_at", new Date(Date.now() - 864e5).toISOString())
     .limit(50);
 
   let sent = 0;
   for (const n of pending ?? []) {
-    const p = n.profiles as unknown as { email: string; is_active: boolean };
-    if (!p.is_active || p.email.endsWith("@invalid.local")) continue;
+    const p = n.profiles as unknown as { is_active: boolean };
+    // WO-2: email lives in profile_contact (service role bypasses RLS).
+    const { data: contact } = await admin.from("profile_contact").select("email").eq("profile_id", n.profile_id).maybeSingle();
+    const email = contact?.email ?? "";
+    if (!p.is_active || !email || email.endsWith("@invalid.local")) continue;
     const { data: prefs } = await admin
       .from("notification_preferences")
       .select("email_enabled")
@@ -35,7 +38,7 @@ Deno.serve(async () => {
       headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: FROM,
-        to: p.email,
+        to: email,
         subject: n.title,
         text: `${n.body ?? ""}\n\nOpen the app: https://YOUR-PRODUCTION-DOMAIN`,
       }),

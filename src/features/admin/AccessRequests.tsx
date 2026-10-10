@@ -13,11 +13,15 @@ export default function AccessRequests() {
   const { data, isLoading } = useQuery({
     queryKey: ["access-requests"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("admin_access_requests")
-        .select("*, profiles!admin_access_requests_profile_id_fkey(full_name,email)")
-        .order("requested_at", { ascending: false });
-      return data ?? [];
+      const [{ data }, { data: contacts }] = await Promise.all([
+        supabase
+          .from("admin_access_requests")
+          .select("*, profiles!admin_access_requests_profile_id_fkey(full_name)")
+          .order("requested_at", { ascending: false }),
+        supabase.from("profile_contact").select("profile_id, email"),
+      ]);
+      const emails = new Map((contacts ?? []).map((c) => [c.profile_id, c.email]));
+      return (data ?? []).map((r) => ({ ...r, email: emails.get(r.profile_id) ?? "" }));
     },
   });
 
@@ -50,14 +54,14 @@ export default function AccessRequests() {
       ) : (
         <Card className="!p-0 divide-y divide-line">
           {data!.map((r) => {
-            const p = r.profiles as { full_name: string; email: string } | null;
+            const p = r.profiles as { full_name: string } | null;
             return (
               <div key={r.id} className="px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="font-semibold text-sm">{p?.full_name}</p>
                     <p className="text-soft text-xs">
-                      {p?.email} · {formatDateTime(r.requested_at)}
+                      {r.email} · {formatDateTime(r.requested_at)}
                     </p>
                     {r.reason && <p className="text-soft text-sm mt-1">“{r.reason}”</p>}
                   </div>

@@ -5,9 +5,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, Field, Modal, PageHeader, Spinner } from "@/components/ui";
-import type { Tables, TablesUpdate } from "@/lib/supabase/database.types";
+import type { TablesUpdate } from "@/lib/supabase/database.types";
+import { PROFILE_COLUMNS, type SafeProfile } from "@/context/AuthContext";
 
-type Profile = Tables<"profiles">;
+// WO-2: contact details come from profile_contact (admins/leads can read it).
+type Profile = SafeProfile & { email: string; phone: string | null };
 
 export default function People() {
   const qc = useQueryClient();
@@ -18,8 +20,9 @@ export default function People() {
   const { data, isLoading } = useQuery({
     queryKey: ["admin-people"],
     queryFn: async () => {
-      const [profiles, memberships, roles, eligibility, team, legacy] = await Promise.all([
-        supabase.from("profiles").select("*").order("full_name"),
+      const [profiles, contacts, memberships, roles, eligibility, team, legacy] = await Promise.all([
+        supabase.from("profiles").select(PROFILE_COLUMNS).order("full_name"),
+        supabase.from("profile_contact").select("profile_id, email, phone"),
         supabase.from("team_memberships").select("*"),
         supabase.from("roles").select("*").eq("is_active", true).order("sort_order"),
         supabase.from("role_eligibility").select("*"),
@@ -31,7 +34,10 @@ export default function People() {
         legacyCounts.set(l.person_name, (legacyCounts.get(l.person_name) ?? 0) + 1);
       }
       return {
-        profiles: (profiles.data ?? []) as Profile[],
+        profiles: (profiles.data ?? []).map((p): Profile => {
+          const c = (contacts.data ?? []).find((x) => x.profile_id === p.id);
+          return { ...p, email: c?.email ?? "", phone: c?.phone ?? null };
+        }),
         memberships: memberships.data ?? [],
         roles: roles.data ?? [],
         eligibility: eligibility.data ?? [],
@@ -74,7 +80,7 @@ export default function People() {
   });
 
   const patchProfile = useMutation({
-    mutationFn: async (args: { id: string; patch: Partial<Profile> }) => {
+    mutationFn: async (args: { id: string; patch: TablesUpdate<"profiles"> }) => {
       const { error } = await supabase.from("profiles").update(args.patch).eq("id", args.id);
       if (error) throw error;
     },
@@ -221,7 +227,7 @@ export default function People() {
             >
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-sm">{p.full_name}</p>
-                <p className="text-soft text-xs truncate">{p.email}</p>
+                <p className="text-soft text-xs truncate">{[p.email, p.phone].filter(Boolean).join(" · ")}</p>
               </div>
               {p.is_admin && <Badge tone="info">admin</Badge>}
               {m?.is_team_lead && <Badge tone="accent">team lead</Badge>}

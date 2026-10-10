@@ -23,6 +23,31 @@ export default function Preferences() {
     },
   });
 
+  // WO-2: contact details and the calendar link live in owner-readable tables.
+  const { data: contact } = useQuery({
+    queryKey: ["my-contact", uid],
+    queryFn: async () => {
+      const { data } = await supabase.from("profile_contact").select("phone").eq("profile_id", uid).maybeSingle();
+      return data;
+    },
+  });
+  const { data: calToken } = useQuery({
+    queryKey: ["my-calendar-token", uid],
+    queryFn: async () => {
+      const { data } = await supabase.from("calendar_tokens").select("token").eq("profile_id", uid).maybeSingle();
+      return data?.token ?? null;
+    },
+  });
+  const rotate = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.rpc("rotate_my_calendar_token");
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["my-calendar-token", uid] }),
+  });
+  const feedUrl = calToken ? `https://mlwkyhlzggqkkioxucxj.supabase.co/functions/v1/my-rota?token=${calToken}` : "";
+
   const { data: myRoles } = useQuery({
     queryKey: ["my-role-ranks", uid],
     queryFn: async () => {
@@ -65,12 +90,14 @@ export default function Preferences() {
 
   useEffect(() => {
     setPreferredName(profile?.preferred_name ?? "");
-    setPhone(profile?.phone ?? "");
   }, [profile]);
+  useEffect(() => {
+    setPhone(contact?.phone ?? "");
+  }, [contact]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const [{ error: e1 }, { error: e2 }] = await Promise.all([
+      const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
         supabase.from("serving_preferences").upsert(
           {
             profile_id: uid,
@@ -82,16 +109,16 @@ export default function Preferences() {
           },
           { onConflict: "profile_id,team_id" }
         ),
-        supabase
-          .from("profiles")
-          .update({ preferred_name: preferredName || null, phone: phone || null })
-          .eq("id", uid),
+        supabase.from("profiles").update({ preferred_name: preferredName || null }).eq("id", uid),
+        supabase.from("profile_contact").update({ phone: phone.trim() || null }).eq("profile_id", uid),
       ]);
       if (e1) throw e1;
       if (e2) throw e2;
+      if (e3) throw e3;
     },
     onSuccess: async () => {
       qc.invalidateQueries({ queryKey: ["serving-preference"] });
+      qc.invalidateQueries({ queryKey: ["my-contact", uid] });
       await refreshProfile();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -199,22 +226,25 @@ export default function Preferences() {
           <input
             className="input text-xs"
             readOnly
-            value={`https://mlwkyhlzggqkkioxucxj.supabase.co/functions/v1/my-rota?token=${profile?.calendar_token ?? ""}`}
+            value={feedUrl}
             onFocus={(e) => e.target.select()}
             aria-label="Calendar subscription URL"
           />
           <button
             className="btn-secondary shrink-0"
-            onClick={() =>
-              navigator.clipboard.writeText(
-                `https://mlwkyhlzggqkkioxucxj.supabase.co/functions/v1/my-rota?token=${profile?.calendar_token ?? ""}`
-              )
-            }
+            disabled={!feedUrl}
+            onClick={() => navigator.clipboard.writeText(feedUrl)}
           >
             Copy
           </button>
         </div>
-        <p className="text-faint text-xs mt-2">This link is personal — treat it like a password.</p>
+        <p className="text-faint text-xs mt-2">
+          This link is personal — treat it like a password. If it's ever shared by mistake, get a new one: the old link stops
+          working straight away and you'll need to subscribe again.
+        </p>
+        <button className="btn-ghost text-sm mt-1 px-0" disabled={rotate.isPending} onClick={() => rotate.mutate()}>
+          {rotate.isPending ? "Making a new link…" : rotate.isSuccess ? "New link ready ✓ — copy it above" : "Get a new link"}
+        </button>
       </Card>
 
       <button className="btn-primary w-full" onClick={() => save.mutate()} disabled={save.isPending}>

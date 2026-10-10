@@ -5,9 +5,18 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 import type { Tables } from "@/lib/supabase/database.types";
 
+/** Only the non-sensitive profile columns. Contact details live in
+ *  profile_contact and the calendar link in calendar_tokens (WO-2); signed-in
+ *  users can't select profiles.* any more. */
+export const PROFILE_COLUMNS = "id, full_name, preferred_name, avatar_url, is_admin, is_active, created_at, updated_at";
+export type SafeProfile = Pick<
+  Tables<"profiles">,
+  "id" | "full_name" | "preferred_name" | "avatar_url" | "is_admin" | "is_active" | "created_at" | "updated_at"
+>;
+
 export interface AuthState {
   session: Session | null;
-  profile: Tables<"profiles"> | null;
+  profile: SafeProfile | null;
   isAdmin: boolean;
   isTeamLead: boolean;
   teamId: string | null;
@@ -20,14 +29,14 @@ const AuthContext = createContext<AuthState | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Tables<"profiles"> | null>(null);
+  const [profile, setProfile] = useState<SafeProfile | null>(null);
   const [isTeamLead, setIsTeamLead] = useState(false);
   const [teamId, setTeamId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   async function loadProfile(userId: string) {
     const [{ data: p }, { data: m }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", userId).single(),
+      supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", userId).single(),
       supabase
         .from("team_memberships")
         .select("team_id, is_team_lead")

@@ -257,6 +257,24 @@ export type Database = {
           },
         ]
       }
+      calendar_tokens: {
+        Row: {
+          profile_id: string
+          rotated_at: string
+          token: string
+        }
+        Insert: {
+          profile_id: string
+          rotated_at?: string
+          token?: string
+        }
+        Update: {
+          profile_id?: string
+          rotated_at?: string
+          token?: string
+        }
+        Relationships: []
+      }
       encouragement_messages: {
         Row: {
           created_at: string
@@ -412,6 +430,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      profile_contact: {
+        Row: {
+          email: string
+          notes: string | null
+          phone: string | null
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          email?: string
+          notes?: string | null
+          phone?: string | null
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          email?: string
+          notes?: string | null
+          phone?: string | null
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1247,6 +1289,16 @@ export type Database = {
       }
     }
     Views: {
+      member_directory: {
+        Row: {
+          avatar_url: string | null
+          full_name: string | null
+          id: string | null
+          is_active: boolean | null
+          preferred_name: string | null
+        }
+        Relationships: []
+      }
       song_stats: {
         Row: {
           last_sung: string | null
@@ -1259,6 +1311,7 @@ export type Database = {
       }
     }
     Functions: {
+      rotate_my_calendar_token: { Args: never; Returns: string }
       archive_song_tag: { Args: { p_name: string }; Returns: number }
       array_replace_ci: { Args: { p_arr: string[]; p_new: string; p_old: string }; Returns: string[] }
       bulk_tag_songs: { Args: { p_add: string[]; p_remove: string[]; p_song_ids: string[] }; Returns: number }

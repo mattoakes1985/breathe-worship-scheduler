@@ -65,3 +65,62 @@ select set_config('request.jwt.claims', json_build_object('sub', :'admin', 'role
 set local role authenticated;
 select count(*) >= 0 as pass_admin_reads from audit_log;
 rollback;
+
+-- ===========================================================================
+-- WO-2 (2026-10-10): contact details and calendar tokens.
+-- Verified live on 2026-10-10 inside rolled-back transactions (results in
+-- AGENTS.md). Re-run after any change to profiles / profile_contact /
+-- calendar_tokens policies or grants.
+-- ===========================================================================
+
+-- 9. A plain member cannot read another person's email/phone/notes.
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'volunteer_a', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select count(*) = 0 as pass_contact_private
+from profile_contact where profile_id <> :'volunteer_a';
+rollback;
+
+-- 10. A plain member cannot read anyone else's calendar token — and even a
+--     team lead/admin sees only their own.
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'admin', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select count(*) = 0 as pass_tokens_owner_only
+from calendar_tokens where profile_id <> :'admin';
+rollback;
+
+-- 11. The legacy profile columns are unreadable through the API (00014c).
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'volunteer_a', 'role', 'authenticated')::text, true);
+set local role authenticated;
+-- expected: ERROR permission denied for table profiles
+-- select email, phone, notes, calendar_token from profiles;
+select count(full_name) >= 0 as pass_names_still_readable from profiles;
+rollback;
+
+-- 12. A member may change their own phone but not their own email or notes,
+--     and cannot touch anyone else's contact row.
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'volunteer_a', 'role', 'authenticated')::text, true);
+set local role authenticated;
+update profile_contact set phone = '07000 000000' where profile_id = :'volunteer_a';   -- expected: 1 row
+update profile_contact set phone = 'x' where profile_id <> :'volunteer_a';           -- expected: 0 rows
+-- expected: ERROR 'Only an admin can change email or notes'
+-- update profile_contact set email = 'x@y.z' where profile_id = :'volunteer_a';
+rollback;
+
+-- 13. Songs vault (WO-1): members read songs but not history/review/views,
+--     and nobody can hard-delete a song.
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'volunteer_a', 'role', 'authenticated')::text, true);
+set local role authenticated;
+select (select count(*) from songs_history) = 0
+   and (select count(*) from song_review_items) = 0 as pass_song_admin_tables_private;
+rollback;
+begin;
+select set_config('request.jwt.claims', json_build_object('sub', :'admin', 'role', 'authenticated')::text, true);
+set local role authenticated;
+-- expected: DELETE 0 (restrictive policy) — songs are archived or merged, never removed
+-- delete from songs where id = :'any_song';
+rollback;
