@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, Plus } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Card, Field, Modal, PageHeader, Spinner } from "@/components/ui";
-import { formatDate } from "@/lib/format";
+import { formatDate, toLocalISODate } from "@/lib/format";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -183,7 +183,7 @@ function GenerateForm({ onGenerate, busy }: { onGenerate: (dates: string[]) => v
     const d = new Date(from + "T00:00:00");
     const end = new Date(to + "T00:00:00");
     while (d <= end) {
-      if (d.getDay() === dow) dates.push(d.toISOString().slice(0, 10));
+      if (d.getDay() === dow) dates.push(toLocalISODate(d));
       d.setDate(d.getDate() + 1);
     }
   }

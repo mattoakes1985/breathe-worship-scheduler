@@ -5,13 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, Field, PageHeader, Spinner } from "@/components/ui";
-import { todayISO } from "@/lib/format";
+import { todayISO, toLocalISODate } from "@/lib/format";
 
 export default function Reports() {
   const [from, setFrom] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() - 3);
-    return d.toISOString().slice(0, 10);
+    return toLocalISODate(d);
   });
   const [to, setTo] = useState(todayISO());
 
@@ -29,6 +29,7 @@ export default function Reports() {
         supabase
           .from("services")
           .select("id,service_date")
+          .is("archived_at", null)
           .in("status", ["published", "completed"])
           .lte("service_date", todayISO())
           .order("service_date", { ascending: false })

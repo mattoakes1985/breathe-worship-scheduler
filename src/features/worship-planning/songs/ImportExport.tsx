@@ -1,3 +1,4 @@
+import { toLocalISODate } from "@/lib/format";
 // Admin full export (CSV + JSON) and dry-run import. Import never deletes:
 // it shows a field-by-field diff first; "Apply" updates changed songs (with
 // the same version check as the editor) and adds new ones.
@@ -63,7 +64,7 @@ export default function ImportExport() {
   if (isLoading) return <Spinner />;
   if (error) return <ErrorState message={songErrorMessage(error)} retry={() => refetch()} />;
   const all = songs ?? [];
-  const stamp = new Date().toISOString().slice(0, 10);
+  const stamp = toLocalISODate(new Date());
 
   return (
     <div className="space-y-4">

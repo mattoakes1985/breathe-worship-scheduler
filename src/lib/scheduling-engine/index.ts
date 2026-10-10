@@ -16,6 +16,11 @@ export * from "./types";
 
 const DAY_MS = 86_400_000;
 
+/** Local-time YYYY-MM-DD (toISOString would shift to UTC and lose a day in BST). */
+export function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 function parseDate(iso: string): Date {
   return new Date(iso + "T00:00:00");
 }
@@ -62,11 +67,11 @@ export function countServesInPeriod(
     end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
   } else {
     const dow = (d.getDay() + 6) % 7; // Monday-start week
-    start = new Date(d.getTime() - dow * DAY_MS);
-    end = new Date(start.getTime() + 6 * DAY_MS);
+    start = new Date(d.getFullYear(), d.getMonth(), d.getDate() - dow);
+    end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   }
-  const s = start.toISOString().slice(0, 10);
-  const e = end.toISOString().slice(0, 10);
+  const s = isoDate(start);
+  const e = isoDate(end);
   return entries.filter(
     (x) => x.profileId === profileId && x.serviceDate >= s && x.serviceDate <= e
   ).length;

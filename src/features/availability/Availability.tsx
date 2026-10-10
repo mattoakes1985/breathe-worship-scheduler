@@ -27,6 +27,7 @@ export default function Availability() {
         supabase
           .from("services")
           .select("id,title,service_date,start_time,status,scheduling_locked,availability_locked")
+          .is("archived_at", null)
           .in("status", ["availability_open", "scheduling_open", "published"])
           .gte("service_date", todayISO())
           .order("service_date"),

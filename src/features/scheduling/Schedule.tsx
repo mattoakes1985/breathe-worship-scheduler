@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { CalendarDays, ChevronRight, Download } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Card, EmptyState, PageHeader, Spinner } from "@/components/ui";
-import { formatDate, formatTime, todayISO } from "@/lib/format";
+import { formatDate, formatTime, todayISO, toLocalISODate } from "@/lib/format";
 
 interface RotaRow {
   service_id: string;
@@ -33,6 +33,7 @@ export default function Schedule() {
         supabase
           .from("services")
           .select("id,title,service_date,start_time")
+          .is("archived_at", null)
           .in("status", ["published", "completed"])
           .lt("service_date", todayISO())
           .order("service_date", { ascending: false })
@@ -82,6 +83,7 @@ export default function Schedule() {
       const { data: services } = await supabase
         .from("services")
         .select("id,title,service_date,start_time")
+        .is("archived_at", null)
         .in("status", ["published"])
         .gte("service_date", todayISO())
         .order("service_date")
@@ -200,7 +202,7 @@ function CsvExport() {
   const [to, setTo] = useState(() => {
     const d = new Date();
     d.setMonth(d.getMonth() + 2);
-    return d.toISOString().slice(0, 10);
+    return toLocalISODate(d);
   });
   const [busy, setBusy] = useState(false);
 
@@ -210,6 +212,7 @@ function CsvExport() {
       const { data: services } = await supabase
         .from("services")
         .select("id,title,service_date,start_time")
+        .is("archived_at", null)
         .in("status", ["published", "completed"])
         .gte("service_date", from)
         .lte("service_date", to)

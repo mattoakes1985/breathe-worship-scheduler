@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { PageHeader, Spinner } from "@/components/ui";
 import { BarList, ChartCard, ColumnChart } from "@/components/charts";
-import { formatDate } from "@/lib/format";
+import { formatDate, toLocalISODate } from "@/lib/format";
 
 interface Play {
   songId: string;
@@ -23,7 +23,7 @@ export default function SongInsights() {
       const { data } = await supabase
         .from("service_songs")
         .select("song_id, key_override, songs(title,default_key), services!inner(service_date)")
-        .lte("services.service_date", new Date().toISOString().slice(0, 10));
+        .lte("services.service_date", toLocalISODate(new Date()));
       return (data ?? []).map((r) => ({
         songId: r.song_id,
         title: (r.songs as { title: string } | null)?.title ?? "?",
@@ -36,7 +36,7 @@ export default function SongInsights() {
   const cutoff = useMemo(() => {
     const d = new Date();
     d.setFullYear(d.getFullYear() - 1);
-    return d.toISOString().slice(0, 10);
+    return toLocalISODate(d);
   }, []);
 
   const inRange = useMemo(
@@ -73,7 +73,7 @@ export default function SongInsights() {
   }, [inRange]);
 
   const comebacks = useMemo(() => {
-    const cutoff120 = new Date(Date.now() - 120 * 864e5).toISOString().slice(0, 10);
+    const cutoff120 = toLocalISODate(new Date(Date.now() - 120 * 864e5));
     const counts = new Map<string, { title: string; n: number; last: string }>();
     for (const p of plays ?? []) {
       const cur = counts.get(p.songId);

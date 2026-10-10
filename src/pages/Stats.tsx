@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Card, PageHeader, Spinner } from "@/components/ui";
 import { BarList, ChartCard, ColumnChart } from "@/components/charts";
-import { formatDate, formatDateShort } from "@/lib/format";
+import { formatDate, formatDateShort, toLocalISODate } from "@/lib/format";
 
 interface Stats {
   served_this_month: number;
@@ -48,7 +48,7 @@ export default function Stats() {
       return (data ?? [])
         .filter((a) => {
           const s = a.services as { status: string; service_date: string };
-          return ["published", "completed"].includes(s.status) && s.service_date <= new Date().toISOString().slice(0, 10);
+          return ["published", "completed"].includes(s.status) && s.service_date <= toLocalISODate(new Date());
         })
         .map((a) => {
           const s = a.services as { id: string; title: string; service_date: string };

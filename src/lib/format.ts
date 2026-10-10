@@ -34,6 +34,13 @@ export function formatDateTime(iso: string | null | undefined): string {
   });
 }
 
+/** YYYY-MM-DD in the browser's local time zone. Never use toISOString() for
+ *  calendar dates: it converts to UTC, which shifts local midnight back a day
+ *  during British Summer Time (this put services on Saturdays). */
+export function toLocalISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalISODate(new Date());
 }

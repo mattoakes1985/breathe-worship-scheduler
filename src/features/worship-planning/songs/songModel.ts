@@ -1,3 +1,4 @@
+import { toLocalISODate } from "@/lib/format";
 // Songs vault (WO-1) — pure logic: key parsing, filter/sort, duplicate
 // detection, CSV/JSON export and dry-run import diff. No React, no Supabase:
 // everything here is unit-tested in songModel.test.ts.
@@ -122,7 +123,7 @@ export const SORT_LABEL: Record<SortKey, string> = {
 export function monthsAgo(n: number, today: Date): string {
   const d = new Date(today);
   d.setMonth(d.getMonth() - n);
-  return d.toISOString().slice(0, 10);
+  return toLocalISODate(d);
 }
 
 export function isRarelyUsed(s: SongWithStats, today: Date): boolean {

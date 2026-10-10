@@ -1,3 +1,4 @@
+import { toLocalISODate } from "@/lib/format";
 // Change request #8: worship-planning editor on the service detail screen.
 // Visible to Team Leads/Admins once a service exists — assign songs (WOR-2)
 // and build the running order (WOR-3) in place.
@@ -31,7 +32,7 @@ export default function ServicePlanner({ serviceId }: { serviceId: string }) {
         supabase
           .from("service_songs")
           .select("song_id, services!inner(service_date)")
-          .lte("services.service_date", new Date().toISOString().slice(0, 10)),
+          .lte("services.service_date", toLocalISODate(new Date())),
       ]);
       const intel = new Map<string, { count: number; last: string }>();
       for (const u of usage.data ?? []) {
