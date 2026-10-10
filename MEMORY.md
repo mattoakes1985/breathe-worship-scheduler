@@ -186,3 +186,25 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Made by:** Matt (rules), Orchestrator (precedence + structure)
 - **PRD reference:** §6.5 (SCHED-2/7 extended), D4 unchanged
 - **Status:** Confirmed; "any one of Acoustic/Electric/Keys" reading to be confirmed
+
+## [2026-10-10] Songs vault: never remove, only archive / repoint
+- **Decision:** Songs are never hard-deleted (restrictive RLS policy); merges repoint setlist rows to the kept song and mark the other `merged_into_id`; tags are archived, not deleted; every change writes a `songs_history` row and can be restored.
+- **Why:** Integrity requirement in WO-1, and the Supabase connector refuses data-removing SQL, so designs that need deletes can't be applied from agent sessions anyway.
+- **Made by:** Matt (requirement), Claude (design)
+- **PRD reference:** §6.7, WO-1
+- **Status:** Confirmed, live
+
+## [2026-10-10] Tempo conventions for the song library
+- **Decision:** `bpm` is the tempo exactly as ChartBuilder shows it, never doubled. `time_signature` is the song's real meter. `click_signature` records the click setting: 6/8 songs use a 3/8 click; many 4/4 songs use a 4/8 click as the doubling mechanism. `is_swung` is a separate flag. `bpm_feel` (half-time/double-time) is a note, not a replacement value.
+- **Why:** Stated by Matt; explains most apparent BPM conflicts in the old sheet.
+- **Made by:** Matt
+- **PRD reference:** §6.7
+- **Status:** Confirmed
+
+## [2026-10-10] WO-2 approach: column grants now, column drop later
+- **Decision:** Contact details live in `profile_contact` (self, team leads, admins; non-admins may change only their own phone) and calendar tokens in owner-only `calendar_tokens`. The legacy columns on `profiles` were not blanked; instead signed-in users were limited to name/admin/active columns by column-level grants. The physical drop is a hand-run file (`supabase/migrations_pending/drop_legacy_profile_columns.sql`), as is the updated erase function (`00014b`).
+- **Why:** The Supabase connector refuses bulk personal-data updates and drops; column grants close the exposure immediately and keep the old values as a backup until Matt is happy.
+- **Made by:** Claude, approved by Matt
+- **PRD reference:** §8.3, WO-2
+- **Status:** Confirmed, live (drop pending)
+
