@@ -1,7 +1,7 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
-// Produced via `supabase gen types typescript` against project mlwkyhlzggqkkioxucxj
-// on 2026-07-05; songs-vault tables/columns/RPCs added 2026-10-10 from a fresh
-// generate_typescript_types run (migrations 00012a-f, 00013). Regenerate + broadcast on any schema change (PRD §18.5.2).
+// Regenerated 2026-10-10 with generate_typescript_types against mlwkyhlzggqkkioxucxj
+// after migrations 00014-00016 (contact privacy, service date fix, team list planner).
+// Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
   | number
@@ -11,6 +11,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -49,7 +51,21 @@ export type Database = {
             foreignKeyName: "admin_access_requests_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_access_requests_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "admin_access_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
             referencedColumns: ["id"]
           },
           {
@@ -103,7 +119,21 @@ export type Database = {
             foreignKeyName: "assignments_assigned_by_fkey"
             columns: ["assigned_by"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assignments_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
             referencedColumns: ["id"]
           },
           {
@@ -172,7 +202,114 @@ export type Database = {
             foreignKeyName: "audit_log_actor_profile_id_fkey"
             columns: ["actor_profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_log_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      availability_import_rows: {
+        Row: {
+          answers: Json
+          id: string
+          import_id: string
+          person_id: string | null
+          raw_name: string
+          request_note: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          answers?: Json
+          id?: string
+          import_id: string
+          person_id?: string | null
+          raw_name: string
+          request_note?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          answers?: Json
+          id?: string
+          import_id?: string
+          person_id?: string | null
+          raw_name?: string
+          request_note?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "availability_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_import_rows_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      availability_imports: {
+        Row: {
+          file_name: string
+          id: string
+          imported_at: string
+          imported_by: string | null
+          month: string
+          row_count: number
+          summary: Json
+          team_id: string
+        }
+        Insert: {
+          file_name: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          month: string
+          row_count?: number
+          summary?: Json
+          team_id: string
+        }
+        Update: {
+          file_name?: string
+          id?: string
+          imported_at?: string
+          imported_by?: string | null
+          month?: string
+          row_count?: number
+          summary?: Json
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "availability_imports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_imports_imported_by_fkey"
+            columns: ["imported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "availability_imports_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
@@ -203,6 +340,13 @@ export type Database = {
           service_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "availability_responses_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "availability_responses_profile_id_fkey"
             columns: ["profile_id"]
@@ -252,6 +396,13 @@ export type Database = {
             foreignKeyName: "blockout_dates_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blockout_dates_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -273,7 +424,22 @@ export type Database = {
           rotated_at?: string
           token?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "calendar_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       encouragement_messages: {
         Row: {
@@ -301,6 +467,38 @@ export type Database = {
           trigger_type?: string
         }
         Relationships: []
+      }
+      households: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          preference: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          preference?: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          preference?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "households_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       legacy_assignments: {
         Row: {
@@ -332,6 +530,13 @@ export type Database = {
             foreignKeyName: "legacy_assignments_claimed_profile_id_fkey"
             columns: ["claimed_profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legacy_assignments_claimed_profile_id_fkey"
+            columns: ["claimed_profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -347,6 +552,41 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      name_aliases: {
+        Row: {
+          alias: string
+          alias_key: string | null
+          created_at: string
+          id: string
+          person_id: string
+          source: string
+        }
+        Insert: {
+          alias: string
+          alias_key?: string | null
+          created_at?: string
+          id?: string
+          person_id: string
+          source?: string
+        }
+        Update: {
+          alias?: string
+          alias_key?: string | null
+          created_at?: string
+          id?: string
+          person_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "name_aliases_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
             referencedColumns: ["id"]
           },
         ]
@@ -371,6 +611,13 @@ export type Database = {
           reminder_days_before?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "notification_preferences_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "notification_preferences_profile_id_fkey"
             columns: ["profile_id"]
@@ -419,6 +666,13 @@ export type Database = {
             foreignKeyName: "notifications_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -427,6 +681,88 @@ export type Database = {
             columns: ["related_service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_availability: {
+        Row: {
+          id: string
+          import_id: string | null
+          person_id: string
+          response: string
+          service_id: string
+          submitted_at: string
+        }
+        Insert: {
+          id?: string
+          import_id?: string | null
+          person_id: string
+          response: string
+          service_id: string
+          submitted_at?: string
+        }
+        Update: {
+          id?: string
+          import_id?: string | null
+          person_id?: string
+          response?: string
+          service_id?: string
+          submitted_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_availability_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "availability_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_availability_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_availability_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      person_roles: {
+        Row: {
+          person_id: string
+          rank: number
+          role_id: string
+        }
+        Insert: {
+          person_id: string
+          rank?: number
+          role_id: string
+        }
+        Update: {
+          person_id?: string
+          rank?: number
+          role_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "person_roles_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_roles_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
         ]
@@ -453,7 +789,22 @@ export type Database = {
           profile_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profile_contact_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_contact_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -474,7 +825,7 @@ export type Database = {
           avatar_url?: string | null
           calendar_token?: string
           created_at?: string
-          email: string
+          email?: string
           full_name: string
           id: string
           is_active?: boolean
@@ -530,6 +881,13 @@ export type Database = {
             foreignKeyName: "role_eligibility_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "role_eligibility_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -577,6 +935,142 @@ export type Database = {
           },
         ]
       }
+      rota_plan_slots: {
+        Row: {
+          id: string
+          locked: boolean
+          person_id: string | null
+          reasons: string[]
+          relaxed: string[]
+          role_id: string
+          service_id: string
+          slot_index: number
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          locked?: boolean
+          person_id?: string | null
+          reasons?: string[]
+          relaxed?: string[]
+          role_id: string
+          service_id: string
+          slot_index?: number
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          locked?: boolean
+          person_id?: string | null
+          reasons?: string[]
+          relaxed?: string[]
+          role_id?: string
+          service_id?: string
+          slot_index?: number
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rota_plan_slots_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_plan_slots_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_plan_slots_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_plan_slots_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rota_plan_slots_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduling_rules: {
+        Row: {
+          enabled: boolean
+          id: string
+          kind: string
+          label: string
+          params: Json
+          priority: number
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          id?: string
+          kind: string
+          label: string
+          params?: Json
+          priority?: number
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          id?: string
+          kind?: string
+          label?: string
+          params?: Json
+          priority?: number
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduling_rules_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduling_rules_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_order_items: {
         Row: {
           duration_minutes: number | null
@@ -609,6 +1103,13 @@ export type Database = {
           title?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "service_order_items_linked_song_id_fkey"
+            columns: ["linked_song_id"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
           {
             foreignKeyName: "service_order_items_linked_song_id_fkey"
             columns: ["linked_song_id"]
@@ -704,6 +1205,13 @@ export type Database = {
             foreignKeyName: "service_songs_song_id_fkey"
             columns: ["song_id"]
             isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "service_songs_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
             referencedRelation: "songs"
             referencedColumns: ["id"]
           },
@@ -755,6 +1263,7 @@ export type Database = {
           created_by: string | null
           end_time: string | null
           id: string
+          is_all_in: boolean
           linked_service_id: string | null
           location: string | null
           notes: string | null
@@ -774,6 +1283,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           id?: string
+          is_all_in?: boolean
           linked_service_id?: string | null
           location?: string | null
           notes?: string | null
@@ -793,6 +1303,7 @@ export type Database = {
           created_by?: string | null
           end_time?: string | null
           id?: string
+          is_all_in?: boolean
           linked_service_id?: string | null
           location?: string | null
           notes?: string | null
@@ -810,7 +1321,21 @@ export type Database = {
             foreignKeyName: "services_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "services_linked_service_id_fkey"
+            columns: ["linked_service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
             referencedColumns: ["id"]
           },
           {
@@ -862,6 +1387,13 @@ export type Database = {
             foreignKeyName: "serving_preferences_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "serving_preferences_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -893,7 +1425,50 @@ export type Database = {
           song_a?: string
           song_b?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "song_duplicate_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_duplicate_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_duplicate_dismissals_song_a_fkey"
+            columns: ["song_a"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "song_duplicate_dismissals_song_a_fkey"
+            columns: ["song_a"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_duplicate_dismissals_song_b_fkey"
+            columns: ["song_b"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "song_duplicate_dismissals_song_b_fkey"
+            columns: ["song_b"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       song_review_items: {
         Row: {
@@ -941,7 +1516,36 @@ export type Database = {
           status?: string
           suggested_value?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "song_review_items_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_review_items_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_review_items_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "song_review_items_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       song_saved_views: {
         Row: {
@@ -971,7 +1575,22 @@ export type Database = {
           owner_id?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "song_saved_views_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "song_saved_views_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       song_tags: {
         Row: {
@@ -1007,24 +1626,24 @@ export type Database = {
         Row: {
           artist: string | null
           audio_url: string | null
+          bpm_feel: string | null
           ccli_number: string | null
           chord_chart_url: string | null
+          click_signature: string | null
           created_at: string
           default_key: string | null
           duration_seconds: number | null
           id: string
           is_active: boolean
+          is_swung: boolean
+          legacy_played_keys: string[]
           male_key: string | null
+          merged_into_id: string | null
           notes: string | null
           tags: string[] | null
           tempo_bpm: number | null
           time_signature: string | null
           title: string
-          bpm_feel: string | null
-          click_signature: string | null
-          is_swung: boolean
-          legacy_played_keys: string[]
-          merged_into_id: string | null
           updated_at: string
           updated_by: string | null
           version: number
@@ -1032,24 +1651,24 @@ export type Database = {
         Insert: {
           artist?: string | null
           audio_url?: string | null
+          bpm_feel?: string | null
           ccli_number?: string | null
           chord_chart_url?: string | null
+          click_signature?: string | null
           created_at?: string
           default_key?: string | null
           duration_seconds?: number | null
           id?: string
           is_active?: boolean
+          is_swung?: boolean
+          legacy_played_keys?: string[]
           male_key?: string | null
+          merged_into_id?: string | null
           notes?: string | null
           tags?: string[] | null
           tempo_bpm?: number | null
           time_signature?: string | null
           title: string
-          bpm_feel?: string | null
-          click_signature?: string | null
-          is_swung?: boolean
-          legacy_played_keys?: string[]
-          merged_into_id?: string | null
           updated_at?: string
           updated_by?: string | null
           version?: number
@@ -1057,29 +1676,58 @@ export type Database = {
         Update: {
           artist?: string | null
           audio_url?: string | null
+          bpm_feel?: string | null
           ccli_number?: string | null
           chord_chart_url?: string | null
+          click_signature?: string | null
           created_at?: string
           default_key?: string | null
           duration_seconds?: number | null
           id?: string
           is_active?: boolean
+          is_swung?: boolean
+          legacy_played_keys?: string[]
           male_key?: string | null
+          merged_into_id?: string | null
           notes?: string | null
           tags?: string[] | null
           tempo_bpm?: number | null
           time_signature?: string | null
           title?: string
-          bpm_feel?: string | null
-          click_signature?: string | null
-          is_swung?: boolean
-          legacy_played_keys?: string[]
-          merged_into_id?: string | null
           updated_at?: string
           updated_by?: string | null
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "songs_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "songs_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       songs_history: {
         Row: {
@@ -1096,7 +1744,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_fields?: string[]
-          id?: number
+          id?: never
           op: string
           snapshot: Json
           song_id: string
@@ -1106,13 +1754,42 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_fields?: string[]
-          id?: number
+          id?: never
           op?: string
           snapshot?: Json
           song_id?: string
           version?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "songs_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "songs_history_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "songs_history_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       swap_requests: {
         Row: {
@@ -1153,7 +1830,21 @@ export type Database = {
             foreignKeyName: "swap_requests_approved_by_fkey"
             columns: ["approved_by"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_claimed_by_profile_id_fkey"
+            columns: ["claimed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
             referencedColumns: ["id"]
           },
           {
@@ -1168,6 +1859,13 @@ export type Database = {
             columns: ["original_assignment_id"]
             isOneToOne: false
             referencedRelation: "assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "swap_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
             referencedColumns: ["id"]
           },
           {
@@ -1209,6 +1907,13 @@ export type Database = {
             foreignKeyName: "team_memberships_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1217,6 +1922,101 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_people: {
+        Row: {
+          created_at: string
+          display_name: string
+          full_name: string | null
+          household_id: string | null
+          id: string
+          is_active: boolean
+          max_per_month: number | null
+          merged_into_id: string | null
+          profile_id: string | null
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          full_name?: string | null
+          household_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_per_month?: number | null
+          merged_into_id?: string | null
+          profile_id?: string | null
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          full_name?: string | null
+          household_id?: string | null
+          id?: string
+          is_active?: boolean
+          max_per_month?: number | null
+          merged_into_id?: string | null
+          profile_id?: string | null
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_people_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_merged_into_id_fkey"
+            columns: ["merged_into_id"]
+            isOneToOne: false
+            referencedRelation: "team_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -1297,6 +2097,20 @@ export type Database = {
           is_active: boolean | null
           preferred_name: string | null
         }
+        Insert: {
+          avatar_url?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          preferred_name?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          full_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          preferred_name?: string | null
+        }
         Relationships: []
       }
       song_stats: {
@@ -1311,20 +2125,24 @@ export type Database = {
       }
     }
     Functions: {
-      rotate_my_calendar_token: { Args: never; Returns: string }
       archive_song_tag: { Args: { p_name: string }; Returns: number }
-      array_replace_ci: { Args: { p_arr: string[]; p_new: string; p_old: string }; Returns: string[] }
-      bulk_tag_songs: { Args: { p_add: string[]; p_remove: string[]; p_song_ids: string[] }; Returns: number }
-      create_song_tag: { Args: { p_color?: string; p_name: string }; Returns: string }
-      merge_songs: { Args: { p_keep: string; p_merge: string }; Returns: Json }
-      rename_song_tag: { Args: { p_new: string; p_old: string }; Returns: number }
-      resolve_song_review: { Args: { p_accept: boolean; p_item_id: string; p_note?: string; p_value?: string }; Returns: undefined }
-      restore_song_version: { Args: { p_song_id: string; p_version: number }; Returns: number }
+      array_replace_ci: {
+        Args: { p_arr: string[]; p_new: string; p_old: string }
+        Returns: string[]
+      }
+      bulk_tag_songs: {
+        Args: { p_add: string[]; p_remove: string[]; p_song_ids: string[] }
+        Returns: number
+      }
       claim_legacy_history: {
         Args: { p_person_name: string; p_profile_id: string }
         Returns: number
       }
       claim_swap: { Args: { p_swap_id: string }; Returns: undefined }
+      create_song_tag: {
+        Args: { p_color?: string; p_name: string }
+        Returns: string
+      }
       erase_profile_personal_data: {
         Args: { p_profile_id: string }
         Returns: undefined
@@ -1339,6 +2157,8 @@ export type Database = {
           created_by: string | null
           end_time: string | null
           id: string
+          is_all_in: boolean
+          linked_service_id: string | null
           location: string | null
           notes: string | null
           scheduling_locked: boolean
@@ -1365,10 +2185,12 @@ export type Database = {
         Args: { p_service_id: string; uid: string }
         Returns: boolean
       }
+      is_planner: { Args: { uid: string }; Returns: boolean }
       is_team_lead: {
         Args: { p_team_id: string; uid: string }
         Returns: boolean
       }
+      merge_songs: { Args: { p_keep: string; p_merge: string }; Returns: Json }
       notify: {
         Args: {
           p_body: string
@@ -1379,12 +2201,21 @@ export type Database = {
         }
         Returns: undefined
       }
-      resolve_swap: {
-        Args: { p_approve: boolean; p_swap_id: string }
+      rename_song_tag: {
+        Args: { p_new: string; p_old: string }
+        Returns: number
+      }
+      resolve_song_review: {
+        Args: {
+          p_accept: boolean
+          p_item_id: string
+          p_note?: string
+          p_value?: string
+        }
         Returns: undefined
       }
-      set_my_role_preference: {
-        Args: { p_role_id: string; p_rank: number }
+      resolve_swap: {
+        Args: { p_approve: boolean; p_swap_id: string }
         Returns: undefined
       }
       respond_to_assignment: {
@@ -1393,6 +2224,16 @@ export type Database = {
           p_decline_reason?: string
           p_response: string
         }
+        Returns: undefined
+      }
+      restore_song_version: {
+        Args: { p_song_id: string; p_version: number }
+        Returns: number
+      }
+      rotate_my_calendar_token: { Args: never; Returns: string }
+      send_service_reminders: { Args: never; Returns: number }
+      set_my_role_preference: {
+        Args: { p_rank: number; p_role_id: string }
         Returns: undefined
       }
     }
@@ -1413,12 +2254,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1442,11 +2283,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1467,11 +2308,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1492,11 +2333,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1509,11 +2350,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
