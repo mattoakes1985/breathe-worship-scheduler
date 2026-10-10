@@ -1,6 +1,7 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Produced via `supabase gen types typescript` against project mlwkyhlzggqkkioxucxj
-// on 2026-07-05. Regenerate + broadcast on any schema change (PRD §18.5.2).
+// on 2026-07-05; songs-vault tables/columns/RPCs added 2026-10-10 from a fresh
+// generate_typescript_types run (migrations 00012a-f, 00013). Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
   | number
@@ -831,6 +832,135 @@ export type Database = {
           },
         ]
       }
+      song_duplicate_dismissals: {
+        Row: {
+          dismissed_at: string
+          dismissed_by: string | null
+          song_a: string
+          song_b: string
+        }
+        Insert: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          song_a: string
+          song_b: string
+        }
+        Update: {
+          dismissed_at?: string
+          dismissed_by?: string | null
+          song_a?: string
+          song_b?: string
+        }
+        Relationships: []
+      }
+      song_review_items: {
+        Row: {
+          created_at: string
+          current_value: string | null
+          evidence: string | null
+          field: string | null
+          id: string
+          kind: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          song_id: string
+          source: string
+          status: string
+          suggested_value: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_value?: string | null
+          evidence?: string | null
+          field?: string | null
+          id?: string
+          kind: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          song_id: string
+          source?: string
+          status?: string
+          suggested_value?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_value?: string | null
+          evidence?: string | null
+          field?: string | null
+          id?: string
+          kind?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          song_id?: string
+          source?: string
+          status?: string
+          suggested_value?: string | null
+        }
+        Relationships: []
+      }
+      song_saved_views: {
+        Row: {
+          created_at: string
+          filters: Json
+          id: string
+          is_shared: boolean
+          name: string
+          owner_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          is_shared?: boolean
+          name: string
+          owner_id?: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          filters?: Json
+          id?: string
+          is_shared?: boolean
+          name?: string
+          owner_id?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      song_tags: {
+        Row: {
+          archived_at: string | null
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          sort_order: number
+        }
+        Insert: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          sort_order?: number
+        }
+        Update: {
+          archived_at?: string | null
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       songs: {
         Row: {
           artist: string | null
@@ -848,6 +978,14 @@ export type Database = {
           tempo_bpm: number | null
           time_signature: string | null
           title: string
+          bpm_feel: string | null
+          click_signature: string | null
+          is_swung: boolean
+          legacy_played_keys: string[]
+          merged_into_id: string | null
+          updated_at: string
+          updated_by: string | null
+          version: number
         }
         Insert: {
           artist?: string | null
@@ -865,6 +1003,14 @@ export type Database = {
           tempo_bpm?: number | null
           time_signature?: string | null
           title: string
+          bpm_feel?: string | null
+          click_signature?: string | null
+          is_swung?: boolean
+          legacy_played_keys?: string[]
+          merged_into_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
         }
         Update: {
           artist?: string | null
@@ -882,6 +1028,47 @@ export type Database = {
           tempo_bpm?: number | null
           time_signature?: string | null
           title?: string
+          bpm_feel?: string | null
+          click_signature?: string | null
+          is_swung?: boolean
+          legacy_played_keys?: string[]
+          merged_into_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      songs_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          changed_fields: string[]
+          id: number
+          op: string
+          snapshot: Json
+          song_id: string
+          version: number
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          id?: number
+          op: string
+          snapshot: Json
+          song_id: string
+          version: number
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          changed_fields?: string[]
+          id?: number
+          op?: string
+          snapshot?: Json
+          song_id?: string
+          version?: number
         }
         Relationships: []
       }
@@ -1060,9 +1247,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      song_stats: {
+        Row: {
+          last_sung: string | null
+          next_planned: string | null
+          played_keys: string[] | null
+          song_id: string | null
+          times_sung: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      archive_song_tag: { Args: { p_name: string }; Returns: number }
+      array_replace_ci: { Args: { p_arr: string[]; p_new: string; p_old: string }; Returns: string[] }
+      bulk_tag_songs: { Args: { p_add: string[]; p_remove: string[]; p_song_ids: string[] }; Returns: number }
+      create_song_tag: { Args: { p_color?: string; p_name: string }; Returns: string }
+      merge_songs: { Args: { p_keep: string; p_merge: string }; Returns: Json }
+      rename_song_tag: { Args: { p_new: string; p_old: string }; Returns: number }
+      resolve_song_review: { Args: { p_accept: boolean; p_item_id: string; p_note?: string; p_value?: string }; Returns: undefined }
+      restore_song_version: { Args: { p_song_id: string; p_version: number }; Returns: number }
       claim_legacy_history: {
         Args: { p_person_name: string; p_profile_id: string }
         Returns: number
