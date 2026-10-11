@@ -2,7 +2,7 @@
 // the app. Archive people who've left (history is kept), confirm households,
 // record instruments, monthly limits and the names they use on the form.
 import { useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Archive, ArchiveRestore, Home, Link2, Plus, Search, UserMinus } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, ErrorState, Field, Modal, Spinner } from "@/components/ui";
@@ -172,7 +172,20 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
   const [ranks, setRanks] = useState<Record<string, number>>(person?.roles ?? {});
   const [newAlias, setNewAlias] = useState("");
   const [mergeInto, setMergeInto] = useState("");
+  const [account, setAccount] = useState<string>(person?.profile_id ?? "");
   const [err, setErr] = useState<string | null>(null);
+
+  // App accounts (names only) to link to this person, so a published month
+  // reaches their Home page and calendar, and leaders can choose songs.
+  const accounts = useQuery({
+    queryKey: ["planner-accounts"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("member_directory").select("id, full_name, preferred_name, is_active").order("full_name");
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+  const takenBy = new Map(base.people.filter((p) => p.profile_id && p.id !== person?.id).map((p) => [p.profile_id!, p.display_name]));
 
   const save = useMutation({
     mutationFn: async () => {
@@ -188,12 +201,12 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
       });
       const row = {
         display_name: display.slice(0, 80), full_name: fullName.trim() || null, max_per_month: max, household_id: household || null,
-        role_links: cleanLinks as never, leads_on_role_id: null, always_role_id: null,
+        role_links: cleanLinks as never, leads_on_role_id: null, always_role_id: null, profile_id: account || null,
       };
       let id = person?.id;
       if (id) {
         const { error } = await supabase.from("team_people").update(row).eq("id", id);
-        if (error) throw new Error(error.message.includes("uq_team_people_name") ? "Someone on the team list already has that name." : error.message);
+        if (error) throw new Error(error.message.includes("uq_team_people_name") ? "Someone on the team list already has that name." : error.message.includes("team_people_profile_id_key") ? "That app account is already linked to someone else." : error.message);
       } else {
         const { data, error } = await supabase.from("team_people").insert({ ...row, team_id: base.teamId }).select("id").single();
         if (error) throw new Error(error.message.includes("uq_team_people_name") ? "Someone on the team list already has that name." : error.message);
@@ -333,6 +346,20 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
           </Field>
         </div>
         {household && <HouseholdPreference id={household} />}
+
+        <Field label="Linked app account" hint="When the month is published, their Sundays appear on their Home page and calendar. If they're leading, they can choose the songs.">
+          <select className="input" value={account} onChange={(e) => setAccount(e.target.value)} disabled={accounts.isLoading}>
+            <option value="">Not linked (doesn't use the app)</option>
+            {(accounts.data ?? []).filter((a) => a.id && (a.is_active || a.id === account)).map((a) => {
+              const taken = takenBy.get(a.id!);
+              return (
+                <option key={a.id} value={a.id!} disabled={!!taken}>
+                  {a.preferred_name && a.preferred_name !== a.full_name ? `${a.preferred_name} (${a.full_name})` : a.full_name}{taken ? ` — linked to ${taken}` : ""}
+                </option>
+              );
+            })}
+          </select>
+        </Field>
 
         {person && (
           <div>

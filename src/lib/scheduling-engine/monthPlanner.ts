@@ -12,7 +12,7 @@
 // loudly with the people closest to filling it.
 
 export type PlanResponse = "yes" | "no" | "maybe";
-export type SoftRuleKind = "monthly_cap" | "rest_gap" | "availability" | "households" | "fairness" | "doubling";
+export type SoftRuleKind = "monthly_cap" | "lead_share" | "rest_gap" | "availability" | "households" | "fairness" | "doubling";
 
 /** How one person's roles pair up on a service.
  *  requires ("only with"): on `role` they're always on `with` too, and aren't
@@ -63,6 +63,9 @@ export interface PlanHousehold {
 export interface PlanSlot {
   roleId: string;
   slotIndex: number;
+  /** An extra place (co-lead, 2nd Vox…): filled only with someone who said yes
+   *  and breaks no rule; never reported as a gap. */
+  optional?: boolean;
 }
 
 export interface PlanService {
@@ -102,7 +105,8 @@ export interface CoreGroup {
 export interface PlanRules {
   plannedRoleIds: string[] | null; // null = every slot on the service
   coreGroups: CoreGroup[]; // empty = rule off
-  allIn: boolean;
+  /** Fill optional (extra) places with everyone else available who breaks no rule. */
+  fillExtras: boolean;
   /** soft rules in priority order (highest first); omitted kinds are off */
   softOrder: SoftRuleKind[];
   restGapWeeks: number; // 1 = avoid consecutive Sundays
@@ -129,7 +133,7 @@ export interface PlannedSlot {
   slotIndex: number;
   personId: string | null;
   locked: boolean;
-  extra: boolean; // added on an All-in Sunday beyond the normal slots
+  extra: boolean; // an optional extra place (co-lead, 2nd Vox…)
   reasons: string[];
   relaxed: string[];
 }
@@ -148,7 +152,7 @@ export interface PlanResult {
   load: Record<string, number>;
 }
 
-export const DEFAULT_SOFT_ORDER: SoftRuleKind[] = ["monthly_cap", "rest_gap", "availability", "households", "fairness"];
+export const DEFAULT_SOFT_ORDER: SoftRuleKind[] = ["monthly_cap", "lead_share", "rest_gap", "availability", "households", "fairness"];
 
 const DAY = 86_400_000;
 const toTime = (d: string) => Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10));
@@ -172,6 +176,9 @@ interface Ctx {
   /** roles each person holds on each service: `${serviceId}|${personId}` */
   rolesOn: Map<string, Set<string>>;
   links: Map<string, RoleLink[]>;
+  /** times each person leads in the month being planned */
+  leadCount: Map<string, number>;
+  leadRoles: Set<string>;
 }
 
 interface SvcState {
@@ -186,6 +193,7 @@ function addServe(ctx: Ctx, personId: string, service: PlanService, roleId?: str
   if (roleId) {
     const k = `${service.id}|${personId}`;
     const held = ctx.rolesOn.get(k) ?? new Set<string>();
+    if (ctx.leadRoles.has(roleId) && ![...held].some((r) => ctx.leadRoles.has(r))) ctx.leadCount.set(personId, (ctx.leadCount.get(personId) ?? 0) + 1);
     held.add(roleId);
     ctx.rolesOn.set(k, held);
   }
@@ -285,6 +293,7 @@ function score(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): S
   }
 
   const heldHere = [...(ctx.rolesOn.get(`${service.id}|${p.id}`) ?? [])];
+  const leading = ctx.leadRoles.has(roleId) ? ctx.leadCount.get(p.id) ?? 0 : 0;
   const doubling = heldHere.length > 0;
   const rank = Math.min(Math.max(p.roles[roleId] ?? 1, 1), 10);
   const reasons: string[] = [];
@@ -303,16 +312,19 @@ function score(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): S
       households: hhPenalty,
       fairness: load, // fewer serves this month first
       doubling: doubling ? 1 : 0,
+      lead_share: leading,
     },
     notes: {
       monthly_cap: cap != null && load >= cap ? `Over their monthly limit (${cap})` : undefined,
       rest_gap: tooClose ? `Also serving ${tooClose} (within ${rules.restGapWeeks} week${rules.restGapWeeks === 1 ? "" : "s"})` : undefined,
       availability: response === "maybe" ? "Only said maybe" : undefined,
       households: hhNote,
+      lead_share: leading ? `Already leading ${leading} time${leading === 1 ? "" : "s"} this month` : undefined,
       doubling: doubling ? `Also on ${heldHere.map((r) => ctx.input.roleNames[r] ?? "another role").join(" and ")} (can do both)` : undefined,
     },
-    // instrument preference, then whoever served longest ago, then name
-    tail: [rank, -Math.min(daysSince, 9999)],
+    // instrument preference, then whoever has fewer other chances this month
+    // (so the less available people get their turn), then longest since last served
+    tail: [rank, laterChances(ctx, p.id, service.date), -Math.min(daysSince, 9999)],
     reasons,
   };
 }
@@ -320,8 +332,19 @@ function score(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): S
 /** Doubling someone up comes after the monthly limit and rest week, before everything else. */
 function effectiveOrder(order: SoftRuleKind[]): SoftRuleKind[] {
   const base = order.filter((k) => k !== "doubling");
-  const at = Math.max(base.indexOf("monthly_cap"), base.indexOf("rest_gap")) + 1;
+  const at = Math.max(base.indexOf("monthly_cap"), base.indexOf("lead_share"), base.indexOf("rest_gap")) + 1;
   return [...base.slice(0, at), "doubling", ...base.slice(at)];
+}
+
+/** How many later services this month the person is available for. */
+function laterChances(ctx: Ctx, personId: string, date: string): number {
+  let n = 0;
+  for (const s of ctx.input.services) {
+    if (s.date <= date) continue;
+    const r = ctx.avail.get(`${s.id}|${personId}`);
+    if (r === "yes" || r === "maybe") n++;
+  }
+  return n;
 }
 
 function compare(order: SoftRuleKind[], a: Scored, b: Scored): number {
@@ -338,6 +361,7 @@ function compare(order: SoftRuleKind[], a: Scored, b: Scored): number {
 
 const RELAX_LABEL: Record<SoftRuleKind, string> = {
   doubling: "doubling up",
+  lead_share: "lead sharing",
   monthly_cap: "monthly limit",
   rest_gap: "rest week",
   availability: "maybe",
@@ -394,6 +418,8 @@ export function planMonth(input: PlanInput): PlanResult {
     serviceById: new Map(input.services.map((s) => [s.id, s])),
     states: new Map(),
     rolesOn: new Map(),
+    leadCount: new Map(),
+    leadRoles: new Set(input.rules.leadRoleIds ?? []),
     links: new Map(input.people.map((p) => [p.id, personLinks(p, input.rules.leadRoleIds ?? [])])),
   };
   for (const h of input.history) ctx.serveDates.set(h.personId, [...(ctx.serveDates.get(h.personId) ?? []), h.date]);
@@ -487,7 +513,7 @@ export function planMonth(input: PlanInput): PlanResult {
 
     // 2. remaining slots across the day, scarcest first (fewest people who could fill it)
     for (;;) {
-      const open = active.flatMap((st) => st.slots.filter((s) => !st.filled.has(slotKey(s))).map((s) => ({ st, s })));
+      const open = active.flatMap((st) => st.slots.filter((s) => !s.optional && !st.filled.has(slotKey(s))).map((s) => ({ st, s })));
       if (!open.length) break;
       const counts = open.map((o) => ({ ...o, n: input.people.filter((p) => !exclusion(ctx, p, o.st.service, o.s.roleId)).length }));
       counts.sort(
@@ -505,6 +531,28 @@ export function planMonth(input: PlanInput): PlanResult {
       place(st, s, choice);
     }
 
+    // 2b. extra places (co-lead, 2nd Vox…): anyone else who said yes, but only
+    //     if it breaks no rule (monthly limit, lead sharing, rest week,
+    //     doubling up, "apart" households). Empty extra places aren't gaps.
+    for (const st of active) {
+      for (const s of st.slots.filter((x) => x.optional && !st.filled.has(slotKey(x)))) {
+        let best: Scored | null = null;
+        if (input.rules.fillExtras) {
+          const order = effectiveOrder(input.rules.softOrder);
+          for (const p of input.people) {
+            if (exclusion(ctx, p, st.service, s.roleId)) continue;
+            if (ctx.avail.get(`${st.service.id}|${p.id}`) !== "yes") continue;
+            const sc = score(ctx, p, st.service, s.roleId);
+            const breaks = order.some((k) => (k === "monthly_cap" || k === "lead_share" || k === "rest_gap" || k === "doubling") && sc.penalties[k] > 0) || (order.includes("households") && sc.penalties.households > 1);
+            if (breaks) continue;
+            if (!best || compare(order, sc, best) < 0) best = sc;
+          }
+        }
+        if (best) place(st, s, { scored: best, roleId: s.roleId }, "Extra place: free and breaks no rule");
+        else st.filled.set(slotKey(s), { serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: null, locked: false, extra: true, reasons: ["Extra place: no one else free without breaking a rule"], relaxed: [] });
+      }
+    }
+
     // 3. linked services copy their partner's band
     for (const st of states.filter((x) => x.mirrorOf)) {
       for (const s of st.slots) {
@@ -520,33 +568,11 @@ export function planMonth(input: PlanInput): PlanResult {
     }
 
     for (const st of states) {
-      // 4. All-in Sunday: everyone else who said yes joins on their first-choice role
-      const extras: PlannedSlot[] = [];
-      if (st.service.isAllIn && input.rules.allIn && !st.mirrorOf) {
-        const used = new Map<string, number>();
-        for (const f of st.filled.values()) used.set(f.roleId, Math.max(used.get(f.roleId) ?? -1, f.slotIndex));
-        for (const p of [...input.people].sort((a, b) => a.name.localeCompare(b.name))) {
-          if (ctx.avail.get(`${st.service.id}|${p.id}`) !== "yes") continue;
-          const roles = Object.entries(p.roles).filter(([r]) => isPlanned(r)).sort((a, b) => a[1] - b[1]);
-          const role = roles.find(([r]) => !exclusion(ctx, p, st.service, r));
-          if (!role) continue;
-          const idx = (used.get(role[0]) ?? -1) + 1;
-          if (idx > 9) continue;
-          used.set(role[0], idx);
-          addServe(ctx, p.id, st.service, role[0]);
-          extras.push({
-            serviceId: st.service.id, roleId: role[0], slotIndex: idx, personId: p.id, locked: false, extra: true,
-            reasons: ["All-in Sunday: everyone available serves", role[1] === 1 ? "First-choice instrument" : `Instrument choice #${role[1]}`],
-            relaxed: [],
-          });
-        }
-      }
       for (const s of st.slots) {
         const f = st.filled.get(slotKey(s))!;
-        out.push(f);
-        if (!f.personId) unfilled.push({ serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex });
+        out.push(s.optional ? { ...f, extra: true } : f);
+        if (!f.personId && !s.optional) unfilled.push({ serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex });
       }
-      out.push(...extras);
     }
   }
 

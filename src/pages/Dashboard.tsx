@@ -40,7 +40,10 @@ export default function Dashboard() {
       ]);
       const answered = new Set((myResponses.data ?? []).map((r) => r.service_id));
       return {
-        assignments: assignments.data ?? [],
+        // soonest first (assigned_at is when it was published, not when it happens)
+        assignments: (assignments.data ?? []).sort((a, b) =>
+          (a.services as { service_date: string }).service_date.localeCompare((b.services as { service_date: string }).service_date)
+        ),
         pendingAvailability: (openServices.data ?? []).filter((s) => !answered.has(s.id)),
         stats: (stats.data ?? {}) as Record<string, number | string | null>,
       };
@@ -155,6 +158,14 @@ export default function Dashboard() {
                   </Link>
                   <Badge tone={statusBadgeTone(a.status)}>{a.status}</Badge>
                 </div>
+                {(a.roles as { name: string } | null)?.name === "Worship Leader" && (
+                  <Link
+                    to={`/services/${(a.services as { id: string }).id}`}
+                    className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-accent-strong min-h-[40px]"
+                  >
+                    You're leading — choose the songs <ChevronRight size={16} />
+                  </Link>
+                )}
                 {a.status === "invited" && (
                   <div className="flex gap-2 mt-3">
                     <button

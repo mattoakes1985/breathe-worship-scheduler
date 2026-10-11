@@ -1,16 +1,42 @@
 // WOR-4: rota + song set + running order together on one screen.
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Clock, ListMusic, Printer, Share2, Users } from "lucide-react";
+import { Clock, ListMusic, Mic2, Printer, Share2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Badge, Card, ErrorState, PageHeader, Spinner, statusBadgeTone } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/format";
 import ServicePlanner from "@/features/worship-planning/ServicePlanner";
 
+type RotaEntry = { role: string; slot: number; name: string };
+
+/** The band copied onto the service when the month was published (migration 00027). */
+function groupRota(rota: unknown): { role: string; names: string[] }[] {
+  const out: { role: string; names: string[] }[] = [];
+  for (const e of Array.isArray(rota) ? (rota as RotaEntry[]) : []) {
+    if (!e?.role || !e?.name) continue;
+    const g = out.find((x) => x.role === e.role);
+    if (g) g.names.push(e.name);
+    else out.push({ role: e.role, names: [e.name] });
+  }
+  return out;
+}
+
 export default function ServiceDetail() {
   const { id } = useParams<{ id: string }>();
   const { isTeamLead, isAdmin } = useAuth();
+
+  // Whoever is down to lead this Sunday may choose its songs and running order.
+  const leading = useQuery({
+    queryKey: ["service-detail", id, "am-i-leading"],
+    enabled: !!id && !(isTeamLead || isAdmin),
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("am_i_leading", { p_service_id: id! });
+      if (error) throw error;
+      return !!data;
+    },
+  });
+  const canPlan = isTeamLead || isAdmin || leading.data === true;
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["service-detail", id],
@@ -58,6 +84,7 @@ export default function ServiceDetail() {
   if (isError || !data) return <ErrorState message="This service isn't available to you, or it doesn't exist." retry={refetch} />;
 
   const { service, assignments, legacy, songs, order } = data;
+  const band = groupRota(service.published_rota);
   const totalMinutes = order.reduce((sum, i) => sum + (i.duration_minutes ?? 0), 0);
 
   // Share: WhatsApp-friendly plain text of rota + set list
@@ -66,13 +93,15 @@ export default function ServiceDetail() {
       `🎵 ${service.title} — ${formatDate(service.service_date)} ${formatTime(service.start_time)}`,
       "",
       "Serving:",
-      ...assignments.map(
-        (a) =>
-          `• ${(a.roles as { name: string } | null)?.name}: ${
-            (a.profiles as { preferred_name: string | null; full_name: string } | null)?.preferred_name ||
-            (a.profiles as { full_name: string } | null)?.full_name
-          }`
-      ),
+      ...(band.length
+        ? band.map((g) => `• ${g.role}: ${g.names.join(", ")}`)
+        : assignments.map(
+            (a) =>
+              `• ${(a.roles as { name: string } | null)?.name}: ${
+                (a.profiles as { preferred_name: string | null; full_name: string } | null)?.preferred_name ||
+                (a.profiles as { full_name: string } | null)?.full_name
+              }`
+          )),
       "",
       "Songs:",
       ...songs.map((ss, i) => {
@@ -110,7 +139,16 @@ export default function ServiceDetail() {
         <h2 className="flex items-center gap-2 font-display font-bold text-sm uppercase tracking-wide text-faint mb-2">
           <Users size={14} /> Who's serving
         </h2>
-        {assignments.length === 0 && legacy.length === 0 ? (
+        {band.length > 0 ? (
+          <Card className="!p-0 divide-y divide-line">
+            {band.map((g) => (
+              <div key={g.role} className="flex items-baseline justify-between gap-3 px-4 py-3">
+                <p className="font-semibold text-sm shrink-0">{g.role}</p>
+                <p className="text-soft text-sm text-right">{g.names.join(", ")}</p>
+              </div>
+            ))}
+          </Card>
+        ) : assignments.length === 0 && legacy.length === 0 ? (
           <Card>
             <p className="text-soft text-sm">The rota for this service hasn't been published yet.</p>
           </Card>
@@ -207,7 +245,16 @@ export default function ServiceDetail() {
         )}
       </section>
 
-      {(isTeamLead || isAdmin) && <ServicePlanner serviceId={id!} />}
+      {canPlan && (
+        <>
+          {!(isTeamLead || isAdmin) && (
+            <p className="flex items-center gap-2 text-sm text-accent-strong font-semibold print:hidden">
+              <Mic2 size={16} /> You're leading this one — choose the songs and running order below.
+            </p>
+          )}
+          <ServicePlanner serviceId={id!} />
+        </>
+      )}
     </div>
   );
 }

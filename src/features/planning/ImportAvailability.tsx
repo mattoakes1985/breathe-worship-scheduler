@@ -160,7 +160,7 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
                       {" · "}{yes} yes
                     </span>
                     <label className="flex items-center gap-1.5 text-xs">
-                      <input type="checkbox" checked={!!allIn[d.date]} onChange={(e) => setAllIn({ ...allIn, [d.date]: e.target.checked })} /> All-in
+                      <input type="checkbox" checked={!!allIn[d.date]} onChange={(e) => setAllIn({ ...allIn, [d.date]: e.target.checked })} /> All-in (no kids church)
                     </label>
                   </li>
                 );

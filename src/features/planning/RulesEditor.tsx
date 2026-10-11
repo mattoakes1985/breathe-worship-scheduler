@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase/client";
 import { Card, ErrorState, Spinner } from "@/components/ui";
 import { shortRole, useInvalidatePlanner, usePlannerBase, type Rule } from "./data";
 
-const SOFT = ["monthly_cap", "rest_gap", "households", "fairness"];
+const SOFT = ["monthly_cap", "lead_share", "rest_gap", "households", "fairness"];
 
 export default function RulesEditor() {
   const base = usePlannerBase();
@@ -138,6 +138,7 @@ export default function RulesEditor() {
                     </select>
                   </label>
                 )}
+                {r.kind === "lead_share" && <p className="text-xs text-soft mt-1">Prefers a leader who hasn't led yet this month, so each leader usually gets one Sunday (depending on who's available).</p>}
                 {r.kind === "households" && <p className="text-xs text-soft mt-1">Set households in the Team list. “Apart” households are kept on different services.</p>}
                 {r.kind === "fairness" && <p className="text-xs text-soft mt-1">Fewest serves this month first, then first-choice instrument, then whoever served longest ago.</p>}
               </div>
@@ -151,10 +152,10 @@ export default function RulesEditor() {
         <Card>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="font-semibold text-sm">All-in Sundays</h3>
-              <p className="text-xs text-soft mt-0.5">Everyone who said Yes serves, on their first-choice instrument. Mark a Sunday All-in on the plan or when importing.</p>
+              <h3 className="font-semibold text-sm">Use everyone available</h3>
+              <p className="text-xs text-soft mt-0.5">After the needed places are filled, extra places (a co-lead, a 2nd Vox… one per row in the month grid) go to anyone else who said yes, as long as that breaks none of the rules above. Empty extra places aren't gaps. (“All-in” on a Sunday just means no kids church; it doesn't change who's scheduled.)</p>
             </div>
-            <Toggle on={allIn.enabled} label="All-in Sundays" onChange={(v) => update.mutate([{ id: allIn.id, patch: { enabled: v } }])} />
+            <Toggle on={allIn.enabled} label="Use everyone available" onChange={(v) => update.mutate([{ id: allIn.id, patch: { enabled: v } }])} />
           </div>
         </Card>
       )}

@@ -272,3 +272,14 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Made by:** Matt (rules), Claude (structure)
 - **Status:** Live (00023, 00024, 00024b). Open: Matt says "BV" for Baz, whose instrument is Vocalist; applied to Vocalist pending confirmation.
 
+
+## [2026-10-11] BV is Vox; "All-in" is a label; extra places; leads share the month
+- **Decision:** Backing Vocals merged into Vocalist (BV role switched off, instruments and pairings moved; 00025). `services.is_all_in` only labels a Sunday with no kids church. The old all_in rule now means "use everyone available": extra grid places (2nd Lead/co-lead, 2nd Vox…) are filled from people who said yes, only when no rule is broken; empty extras are not gaps. New soft rule `lead_share` (00026, priority 25): leaders share the month ("everyone usually gets a week to lead, availability dependent"). Hand picks from the month plan and the grid lock the slot; the picker also lists people who didn't answer, said no, other team members and archived people. Availability told in person can be recorded by hand.
+- **Made by:** Matt
+- **Status:** Live. Baz Royle's "BV" pairing resolved by the merge (it is Vox).
+
+## [2026-10-11] Publishing joins the planner to the rest of the app
+- **Decision:** Planner → Month plan → Publish the month (`publish_month`, 00027): services become published, the band is snapshotted to `services.published_rota` (names only) and shown on the service page, and people linked to an app account (Team list → Linked app account, `team_people.profile_id`) get assignments as **confirmed** (no confirmation step yet — leaders-only use). Re-publishing adds new picks and marks removed ones `substituted`; past services keep their assignments. Whoever is planned to lead a service (plan slot or assignment, `is_service_leader`) may edit its songs and running order and its theme/preacher/other items/events — nothing else (trigger-enforced). Home shows "You're leading — choose the songs".
+- **Why:** Matt: "Currently just leads — we may export the month grid to show people"; "no confirmation just yet".
+- **Made by:** Matt (scope), Claude (design)
+- **Status:** Live

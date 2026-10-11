@@ -35,7 +35,7 @@ function input(over: Partial<PlanInput>): PlanInput {
     availability: [],
     history: [],
     locks: [],
-    rules: { plannedRoleIds: null, coreGroups: CORE, allIn: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null },
+    rules: { plannedRoleIds: null, coreGroups: CORE, fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null },
     roleNames,
     ...over,
   };
@@ -253,16 +253,26 @@ describe("locks, All-in and re-runs", () => {
     expect(who(r, services[0].id, DRUMS)).toBe("b"); // 'a' is resting before their locked Sunday
   });
 
-  it("staffs everyone who said yes on an All-in Sunday", () => {
-    const s = svc(sundays[4], [LEAD, VOX], { isAllIn: true });
+  it("fills extra places with anyone else who said yes, but only without breaking a rule", () => {
+    const s = svc(sundays[1], [LEAD, VOX], { slots: [{ roleId: LEAD, slotIndex: 0 }, { roleId: LEAD, slotIndex: 1, optional: true }, { roleId: VOX, slotIndex: 0 }, { roleId: VOX, slotIndex: 1, optional: true }] });
     const r = planMonth(input({
       services: [s],
-      people: [person("l", { lead: 1 }), person("v1", { vox: 1 }), person("v2", { vox: 1 }), person("v3", { vox: 1 }), person("maybe", { vox: 1 })],
-      availability: [...all(["l", "v1", "v2", "v3"], [s]), { personId: "maybe", serviceId: s.id, response: "maybe" }],
+      people: [person("l1", { lead: 1 }), person("l2", { lead: 1 }), person("v1", { vox: 1 }), person("v2", { vox: 1 }), person("maybe", { vox: 1 })],
+      availability: [...all(["l1", "l2", "v1", "v2"], [s]), { personId: "maybe", serviceId: s.id, response: "maybe" }],
+      history: [{ personId: "v2", date: sundays[0] }], // v2 served last week
     }));
     const serving = r.slots.filter((x) => x.personId).map((x) => x.personId).sort();
-    expect(serving).toEqual(["l", "v1", "v2", "v3"]);
-    expect(r.slots.filter((x) => x.extra)).toHaveLength(2);
+    expect(serving).toEqual(["l1", "l2", "v1"]); // v2 rests, "maybe" isn't pulled into an extra place
+    const emptyExtra = r.slots.find((x) => x.roleId === VOX && x.slotIndex === 1)!;
+    expect(emptyExtra.personId).toBeNull();
+    expect(r.unfilled).toEqual([]); // an empty extra place isn't a gap
+  });
+
+  it("leaves extra places empty when the rule is off", () => {
+    const s = svc(sundays[0], [LEAD], { slots: [{ roleId: LEAD, slotIndex: 0 }, { roleId: LEAD, slotIndex: 1, optional: true }] });
+    const base = input({ services: [s], people: [person("l1", { lead: 1 }), person("l2", { lead: 1 })], availability: all(["l1", "l2"], [s]) });
+    const r = planMonth({ ...base, rules: { ...base.rules, fillExtras: false } });
+    expect(r.slots.filter((x) => x.personId)).toHaveLength(1);
   });
 
   it("is deterministic", () => {
@@ -280,14 +290,14 @@ describe("locks, All-in and re-runs", () => {
       services: [s],
       people: [person("l", { lead: 1 }), person("p", { slides: 1 })],
       availability: all(["l", "p"], [s]),
-      rules: { plannedRoleIds: [LEAD], coreGroups: [], allIn: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null },
+      rules: { plannedRoleIds: [LEAD], coreGroups: [], fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null },
     }));
     expect(r.slots.map((x) => x.roleId)).toEqual([LEAD]);
   });
 });
 
 describe("leading from an instrument", () => {
-  const rulesWithLead = { plannedRoleIds: null, coreGroups: CORE, allIn: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null, leadRoleIds: [LEAD] };
+  const rulesWithLead = { plannedRoleIds: null, coreGroups: CORE, fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null, leadRoleIds: [LEAD] };
 
   it("a leader who plays acoustic while leading fills both slots", () => {
     const s = svc(sundays[0], [LEAD, AC, KEYS]);
@@ -402,6 +412,38 @@ describe("pairings", () => {
     const tim = person("tim", { keys: 1, lead: 2, bv: 3 }, { links: [{ role: BV, with: KEYS, mode: "also" }] });
     const r = planMonth(input({ services: [s], people: [tim], availability: all(["tim"], [s]) }));
     expect(r.slots.filter((x) => x.personId === "tim")).toHaveLength(1);
+  });
+});
+
+describe("sharing the leading", () => {
+  it("gives each available leader a Sunday before anyone leads twice", () => {
+    const services = sundays.slice(0, 4).map((d) => svc(d, [LEAD]));
+    const r = planMonth(input({
+      services,
+      people: ["a", "b", "c", "d"].map((id) => person(id, { lead: 1 })),
+      availability: all(["a", "b", "c", "d"], services),
+      rules: { plannedRoleIds: null, coreGroups: CORE, fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 0, defaultMaxPerMonth: null, leadRoleIds: [LEAD] },
+    }));
+    expect(new Set(services.map((s) => who(r, s.id, LEAD))).size).toBe(4);
+  });
+
+  it("lets someone lead twice when others aren't available, and says so", () => {
+    const services = [sundays[0], sundays[2]].map((d) => svc(d, [LEAD]));
+    const r = planMonth(input({
+      services,
+      people: [person("a", { lead: 1 }), person("b", { lead: 1 })],
+      availability: [...all(["a"], services), { personId: "b", serviceId: services[0].id, response: "yes" }],
+      rules: { plannedRoleIds: null, coreGroups: CORE, fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null, leadRoleIds: [LEAD] },
+    }));
+    expect(who(r, services[0].id, LEAD)).toBe("b");
+    expect(who(r, services[1].id, LEAD)).toBe("a");
+    const r2 = planMonth(input({
+      services,
+      people: [person("a", { lead: 1 })],
+      availability: all(["a"], services),
+      rules: { plannedRoleIds: null, coreGroups: CORE, fillExtras: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null, leadRoleIds: [LEAD] },
+    }));
+    expect(r2.slots.find((x) => x.serviceId === services[1].id)!.relaxed.join(" ")).toMatch(/Already leading 1 time/);
   });
 });
 

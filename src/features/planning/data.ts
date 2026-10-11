@@ -47,7 +47,7 @@ export function usePlannerBase() {
   return useQuery({
     queryKey: ["planner-base"],
     queryFn: async () => {
-      const [people, roles, personRoles, aliases, households, rules, activity, team] = await Promise.all([
+      const [people, roles, personRoles, aliases, households, rules, activity, team, settings] = await Promise.all([
         must(supabase.from("team_people").select("*").is("merged_into_id", null).order("display_name")),
         must(supabase.from("roles").select("id, name, sort_order").eq("is_active", true).order("sort_order")),
         must(supabase.from("person_roles").select("*")),
@@ -56,11 +56,14 @@ export function usePlannerBase() {
         must(supabase.from("scheduling_rules").select("*").order("priority")),
         must(supabase.from("team_people_activity").select("*")),
         must(supabase.from("teams").select("id").order("created_at").limit(1)),
+        must(supabase.from("team_settings").select("grid_rows").limit(1)),
       ]);
+      const activeRoles = new Set(roles.map((r) => r.id));
       const act = new Map(activity.map((a) => [a.person_id, a]));
       const list: Person[] = people.map((p) => ({
         ...p,
-        roles: Object.fromEntries(personRoles.filter((r) => r.person_id === p.id).map((r) => [r.role_id, r.rank])),
+        // switched-off roles (e.g. Backing Vocals, merged into Vocalist) are ignored
+        roles: Object.fromEntries(personRoles.filter((r) => r.person_id === p.id && activeRoles.has(r.role_id)).map((r) => [r.role_id, r.rank])),
         aliases: aliases.filter((a) => a.person_id === p.id),
         lastServed: act.get(p.id)?.last_served ?? null,
         servesLastYear: Number(act.get(p.id)?.serves_last_year ?? 0),
@@ -71,6 +74,11 @@ export function usePlannerBase() {
         roles: roles as Role[],
         households,
         rules,
+        /** places per role in the grid (2 Lead rows = a co-lead place) */
+        gridCapacity: ((settings[0]?.grid_rows ?? []) as { role_id?: string }[]).reduce<Record<string, number>>((acc, r) => {
+          if (r.role_id) acc[r.role_id] = (acc[r.role_id] ?? 0) + 1;
+          return acc;
+        }, {}),
         aliasMap: new Map(aliases.map((a) => [a.alias.replace(/[ \s]+/g, " ").trim().toLowerCase(), a.person_id])),
       };
     },
@@ -85,6 +93,16 @@ export function useInvalidatePlanner() {
   };
 }
 
+export type PublishResult = { services: number; month: string; assignments_added: number; assignments_removed: number };
+
+/** Publish a month: services become visible, the band is snapshotted onto each
+ *  service, and linked app accounts get assignments (see migration 00027). */
+export async function publishMonth(month: string): Promise<PublishResult> {
+  const { data, error } = await supabase.rpc("publish_month", { p_month: `${month.slice(0, 7)}-01` });
+  if (error) throw new Error(error.message);
+  return data as unknown as PublishResult;
+}
+
 export function monthRange(month: string) {
   const [y, m] = month.split("-").map(Number);
   const last = new Date(y, m, 0).getDate();
@@ -97,7 +115,7 @@ export function shiftMonth(month: string, delta: number) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export type MonthService = Pick<Tables<"services">, "id" | "title" | "service_date" | "start_time" | "status" | "is_all_in" | "linked_service_id"> & {
+export type MonthService = Pick<Tables<"services">, "id" | "title" | "service_date" | "start_time" | "status" | "is_all_in" | "linked_service_id" | "published_at"> & {
   requirements: { role_id: string; quantity_required: number }[];
 };
 
@@ -110,7 +128,7 @@ export function usePlannerMonth(month: string) {
       const services = await must(
         supabase
           .from("services")
-          .select("id, title, service_date, start_time, status, is_all_in, linked_service_id, service_role_requirements(role_id, quantity_required)")
+          .select("id, title, service_date, start_time, status, is_all_in, linked_service_id, published_at, service_role_requirements(role_id, quantity_required)")
           .is("archived_at", null)
           .neq("status", "cancelled")
           .gte("service_date", from)
@@ -181,7 +199,7 @@ export function rulesToPlanRules(rules: Rule[]): PlanRules {
   const rest = get("rest_gap");
   // "availability" (Yes before Maybe) sits just after the rest week unless Matt moves it.
   const ordered = rules
-    .filter((r) => r.enabled && ["monthly_cap", "rest_gap", "households", "fairness"].includes(r.kind))
+    .filter((r) => r.enabled && ["monthly_cap", "lead_share", "rest_gap", "households", "fairness"].includes(r.kind))
     .sort((a, b) => a.priority - b.priority)
     .map((r) => ({ kind: r.kind as SoftRuleKind, priority: r.priority }));
   ordered.push({ kind: "availability", priority: 35 });
@@ -189,7 +207,7 @@ export function rulesToPlanRules(rules: Rule[]): PlanRules {
   return {
     plannedRoleIds: planned ? ((params(planned).role_ids as string[]) ?? null) : null,
     coreGroups: core ? ((params(core).groups as { label: string; role_ids: string[] }[]) ?? []).map((g) => ({ label: g.label, roleIds: g.role_ids ?? [] })) : [],
-    allIn: !!get("all_in"),
+    fillExtras: !!get("all_in"),
     softOrder: ordered.length ? ordered.map((o) => o.kind) : DEFAULT_SOFT_ORDER,
     restGapWeeks: rest ? Number(params(rest).weeks ?? 1) : 0,
     leadRoleIds: leadRoleIdsFrom(rules),
@@ -231,7 +249,12 @@ export function buildPlanInput(month: string, base: Base, data: MonthData, opts:
   return {
     month,
     services: data.services.map((s) => {
-      const slots = s.requirements.flatMap((r) => Array.from({ length: Math.max(0, r.quantity_required) }, (_, i) => ({ roleId: r.role_id, slotIndex: i })));
+      // needed places from the service, plus extra places up to the grid's rows
+      const slots: { roleId: string; slotIndex: number; optional?: boolean }[] = s.requirements.flatMap((r) => {
+        const need = Math.max(0, r.quantity_required);
+        const total = Math.max(need, base.gridCapacity[r.role_id] ?? 0);
+        return Array.from({ length: total }, (_, i) => ({ roleId: r.role_id, slotIndex: i, ...(i >= need ? { optional: true } : {}) }));
+      });
       // locked extra slots (e.g. All-in additions) stay part of the service
       for (const l of locks) {
         if (l.serviceId === s.id && !slots.some((x) => x.roleId === l.roleId && x.slotIndex === l.slotIndex)) slots.push({ roleId: l.roleId, slotIndex: l.slotIndex });
@@ -297,5 +320,46 @@ export async function savePlan(planned: PlannedSlot[], existing: MonthData["slot
   }
   if (!rows.length) return;
   const { error } = await supabase.from("rota_plan_slots").upsert(rows, { onConflict: "service_id,role_id,slot_index" });
+  if (error) throw new Error(error.message);
+}
+
+
+/** Save a hand pick for one slot (locked, so re-planning keeps it). A pick
+ *  whose role has an "only with" / "usually with" pairing fills the paired
+ *  slot too, unless that slot is locked to someone else ("usually with" also
+ *  leaves it alone if someone else is already there). */
+export async function savePick(args: {
+  serviceId: string;
+  roleId: string;
+  slotIndex: number;
+  personId: string | null;
+  people: Person[];
+  slots: { role_id: string; slot_index: number; person_id: string | null; locked: boolean }[]; // this service's saved slots
+  roleNames: Map<string, string>;
+  hasRole: (roleId: string) => boolean; // the service has a place for this role
+}) {
+  const rows: {
+    service_id: string; role_id: string; slot_index: number; person_id: string | null; locked: boolean; source: string; reasons: string[]; relaxed: string[];
+  }[] = [{ service_id: args.serviceId, role_id: args.roleId, slot_index: args.slotIndex, person_id: args.personId, locked: true, source: "manual", reasons: ["Picked by hand"], relaxed: [] }];
+  const picked = args.personId ? args.people.find((p) => p.id === args.personId) : undefined;
+  for (const l of picked ? parseLinks(picked.role_links) : []) {
+    if (l.role !== args.roleId || l.mode === "can" || !args.hasRole(l.with)) continue;
+    const there = args.slots.find((s) => s.role_id === l.with && s.slot_index === 0);
+    if (there?.person_id && there.person_id !== picked!.id && (there.locked || l.mode === "also")) continue;
+    const a = args.roleNames.get(l.role) ?? "this", b = args.roleNames.get(l.with) ?? "that";
+    rows.push({
+      service_id: args.serviceId, role_id: l.with, slot_index: 0, person_id: picked!.id, locked: true, source: "manual",
+      reasons: [l.mode === "requires" ? `Only does ${a} with ${b}` : `Usually plays ${b} with ${a}`], relaxed: [],
+    });
+  }
+  const { error } = await supabase.from("rota_plan_slots").upsert(rows, { onConflict: "service_id,role_id,slot_index" });
+  if (error) throw new Error(error.message);
+}
+
+/** Record someone's answer by hand (they told you in person). Counts like a form answer. */
+export async function setAvailabilityByHand(serviceId: string, personId: string, response: "yes" | "maybe" | "no") {
+  const { error } = await supabase
+    .from("person_availability")
+    .upsert({ service_id: serviceId, person_id: personId, response, import_id: null, submitted_at: new Date().toISOString() }, { onConflict: "service_id,person_id" });
   if (error) throw new Error(error.message);
 }

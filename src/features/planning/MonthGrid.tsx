@@ -8,7 +8,8 @@ import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Copy, Download, L
 import { supabase } from "@/lib/supabase/client";
 import { EmptyState, ErrorState, Field, Modal, Spinner } from "@/components/ui";
 import { buildMonthGrid, columnText, monthText, monthXlsx, runSheet, type GridFlow, type GridRowDef, type GridSong, type MonthGrid as Grid } from "./gridModel";
-import { mergedAvailability, monthRange, shiftMonth, usePlannerBase, usePlannerMonth } from "./data";
+import { mergedAvailability, monthRange, savePick, shiftMonth, useInvalidatePlanner, usePlannerBase, usePlannerMonth } from "./data";
+import PersonPicker from "./PersonPicker";
 
 const monthLabel = (m: string) => new Date(+m.slice(0, 4), +m.slice(5, 7) - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 
@@ -55,6 +56,7 @@ export default function MonthGrid({ month, setMonth }: { month: string; setMonth
   const [copied, setCopied] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [layoutOpen, setLayoutOpen] = useState(false);
+  const [picking, setPicking] = useState<{ serviceId: string; roleId: string; slot: number; label: string } | null>(null);
 
   useEffect(() => {
     // Print the grid on landscape pages with the sideways scroll flattened.
@@ -156,6 +158,14 @@ export default function MonthGrid({ month, setMonth }: { month: string; setMonth
                               <button className="btn-ghost !min-h-[28px] !px-1" aria-label={`Edit ${v}`} onClick={() => setEditing(grid.columns[ci].primaryId)}><Pencil size={14} /></button>
                             </span>
                           </div>
+                        ) : r.kind === "person" && r.roleId ? (
+                          <button
+                            className="w-full text-left -mx-1 px-1 rounded hover:bg-raised focus-visible:bg-raised print:pointer-events-none"
+                            aria-label={`Change ${r.label} on ${grid.columns[ci].header}`}
+                            onClick={() => setPicking({ serviceId: grid.columns[ci].primaryId, roleId: r.roleId!, slot: r.slot ?? 0, label: `${r.label} · ${grid.columns[ci].header}` })}
+                          >
+                            {v || <span className="text-faint print:hidden">—</span>}
+                          </button>
                         ) : v || <span className="text-faint print:hidden">—</span>}
                       </td>
                     ))}
@@ -208,6 +218,7 @@ export default function MonthGrid({ month, setMonth }: { month: string; setMonth
           onClose={() => setEditing(null)}
         />
       )}
+      {picking && <GridPick {...picking} month={month} onClose={() => setPicking(null)} />}
       {layoutOpen && <RowsEditor rows={extras.data!.rows} teamId={extras.data!.teamId} onClose={() => setLayoutOpen(false)} />}
     </div>
   );
@@ -421,6 +432,35 @@ function RowsEditor({ rows, teamId, onClose }: { rows: GridRowDef[]; teamId?: st
         <button className="btn-secondary" onClick={onClose}>Cancel</button>
         <button className="btn-primary" disabled={save.isPending} onClick={() => save.mutate()}>Save rows</button>
       </div>
+    </Modal>
+  );
+}
+
+/** Pick who fills one slot straight from the grid (same rules as the month plan). */
+function GridPick({ serviceId, roleId, slot, label, month, onClose }: { serviceId: string; roleId: string; slot: number; label: string; month: string; onClose: () => void }) {
+  const base = usePlannerBase().data!;
+  const data = usePlannerMonth(month).data!;
+  const invalidate = useInvalidatePlanner();
+  const qc = useQueryClient();
+  const service = data.services.find((s) => s.id === serviceId)!;
+  const slots = data.slots.filter((s) => s.service_id === serviceId);
+  const current = slots.find((s) => s.role_id === roleId && s.slot_index === slot)?.person_id ?? null;
+  const response = new Map(mergedAvailability(base, data).filter((a) => a.serviceId === serviceId).map((a) => [a.personId, a.response as string]));
+  const onService = new Set(slots.filter((s) => s.person_id).map((s) => s.person_id!));
+  const roleNames = new Map(base.roles.map((r) => [r.id, r.name]));
+  const save = useMutation({
+    mutationFn: (personId: string | null) =>
+      savePick({
+        serviceId, roleId, slotIndex: slot, personId, people: base.people, slots, roleNames,
+        hasRole: (r) => service.requirements.some((q) => q.role_id === r && q.quantity_required > 0),
+      }),
+    onSuccess: () => { invalidate(); qc.invalidateQueries({ queryKey: ["planner-grid"] }); onClose(); },
+  });
+  return (
+    <Modal open onClose={onClose} title={label}>
+      <PersonPicker roleId={roleId} value={current} people={base.people} response={response} onService={onService} onChange={(pid) => save.mutate(pid)} ariaLabel={label} className="w-full" />
+      <p className="text-xs text-soft mt-2">Picking someone locks the slot, so re-planning keeps it. Anyone can be picked by hand; the planner only uses people who said yes or maybe.</p>
+      {save.error && <p className="text-danger text-sm mt-2" role="alert">{(save.error as Error).message}</p>}
     </Modal>
   );
 }

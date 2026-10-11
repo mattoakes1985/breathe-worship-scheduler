@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00024 (contact privacy, service dates, planner, month grid, pairings).
+// after migrations 00014-00027 (contact privacy, service dates, planner, month grid, pairings, publish + service leaders).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -1308,6 +1308,8 @@ export type Database = {
           notes: string | null
           other_items: string | null
           preacher: string | null
+          published_at: string | null
+          published_rota: Json
           scheduling_locked: boolean
           service_date: string
           start_time: string
@@ -1332,6 +1334,8 @@ export type Database = {
           notes?: string | null
           other_items?: string | null
           preacher?: string | null
+          published_at?: string | null
+          published_rota?: Json
           scheduling_locked?: boolean
           service_date: string
           start_time: string
@@ -1356,6 +1360,8 @@ export type Database = {
           notes?: string | null
           other_items?: string | null
           preacher?: string | null
+          published_at?: string | null
+          published_rota?: Json
           scheduling_locked?: boolean
           service_date?: string
           start_time?: string
@@ -2260,6 +2266,7 @@ export type Database = {
       }
     }
     Functions: {
+      am_i_leading: { Args: { p_service_id: string }; Returns: boolean }
       apply_availability_import: { Args: { p: Json }; Returns: Json }
       archive_song_tag: { Args: { p_name: string }; Returns: number }
       array_replace_ci: {
@@ -2300,6 +2307,8 @@ export type Database = {
           notes: string | null
           other_items: string | null
           preacher: string | null
+          published_at: string | null
+          published_rota: Json
           scheduling_locked: boolean
           service_date: string
           start_time: string
@@ -2326,6 +2335,10 @@ export type Database = {
         Returns: boolean
       }
       is_planner: { Args: { uid: string }; Returns: boolean }
+      is_service_leader: {
+        Args: { p_service_id: string; uid: string }
+        Returns: boolean
+      }
       is_team_lead: {
         Args: { p_team_id: string; uid: string }
         Returns: boolean
@@ -2345,6 +2358,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      publish_month: { Args: { p_month: string }; Returns: Json }
       rename_song_tag: {
         Args: { p_new: string; p_old: string }
         Returns: number
