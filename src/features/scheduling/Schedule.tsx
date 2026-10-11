@@ -1,282 +1,283 @@
-// SCHED-6: read-only master schedule — any active volunteer sees who's
-// serving in every role for upcoming published services.
+// Master schedule, a month at a time: who's serving (the published band, or
+// history for past services), the songs and keys, theme and preacher. Members
+// see published services; team leads and admins also see unpublished ones with
+// the plan so far. Download any date range as CSV.
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarDays, ChevronRight, Download } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Download, ListMusic } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
-import { Card, EmptyState, PageHeader, Spinner } from "@/components/ui";
-import { formatDate, formatTime, todayISO, toLocalISODate } from "@/lib/format";
+import { useAuth } from "@/context/AuthContext";
+import { Badge, Card, EmptyState, ErrorState, Field, Modal, PageHeader, Spinner } from "@/components/ui";
+import { formatDate, formatTime, monthLabel, monthRange, shiftMonth, todayISO } from "@/lib/format";
+import { buildBand, scheduleCsv, setLine, type Band, type PersonInRole, type SetSong } from "./scheduleModel";
 
-interface RotaRow {
-  service_id: string;
-  status: string;
-  roles: { name: string; sort_order: number } | null;
-  profiles: { preferred_name: string | null; full_name: string } | null;
-}
-
-interface ScheduleService {
+export interface ScheduleEntry {
   id: string;
   title: string;
-  service_date: string;
-  start_time: string;
+  date: string;
+  time: string;
+  status: string;
+  theme: string | null;
+  preacher: string | null;
+  otherItems: string | null;
+  band: Band;
+  songs: SetSong[];
+}
+
+type Named = { preferred_name: string | null; full_name: string } | null;
+const nameOf = (p: Named) => p?.preferred_name || p?.full_name || null;
+
+async function chunked<T>(ids: string[], run: (part: string[]) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await run(ids.slice(i, i + 100));
+    if (error) throw new Error(error.message);
+    out.push(...(data ?? []));
+  }
+  return out;
+}
+
+/** Everything the schedule shows for services between two dates (inclusive). */
+export async function loadSchedule(from: string, to: string, planner: boolean): Promise<ScheduleEntry[]> {
+  const [svc, roles] = await Promise.all([
+    supabase
+      .from("services")
+      .select("id, title, service_date, start_time, status, published_rota, theme, preacher, other_items")
+      .is("archived_at", null)
+      .neq("status", "cancelled")
+      .gte("service_date", from)
+      .lte("service_date", to)
+      .order("service_date")
+      .order("start_time"),
+    supabase.from("roles").select("name, sort_order"),
+  ]);
+  if (svc.error) throw new Error(svc.error.message);
+  const services = svc.data ?? [];
+  const ids = services.map((s) => s.id);
+  const roleOrder = new Map((roles.data ?? []).map((r) => [r.name, r.sort_order]));
+  if (!ids.length) return [];
+
+  const [assignments, legacy, songs, plan] = await Promise.all([
+    chunked<{ service_id: string; status: string; roles: { name: string; sort_order: number } | null; profiles: Named }>(ids, (part) =>
+      supabase
+        .from("assignments")
+        .select("service_id, status, roles(name, sort_order), profiles!assignments_profile_id_fkey(preferred_name, full_name)")
+        .in("service_id", part)
+        .in("status", ["invited", "confirmed", "needs_substitute"])
+    ),
+    chunked<{ service_id: string; person_name: string; roles: { name: string; sort_order: number } | null }>(ids, (part) =>
+      supabase.from("legacy_assignments").select("service_id, person_name, roles(name, sort_order)").in("service_id", part)
+    ),
+    chunked<{ service_id: string; order_index: number; key_override: string | null; songs: { title: string; default_key: string | null } | null }>(ids, (part) =>
+      supabase.from("service_songs").select("service_id, order_index, key_override, songs(title, default_key)").in("service_id", part)
+    ),
+    planner
+      ? chunked<{ service_id: string; person_id: string | null; slot_index: number; roles: { name: string; sort_order: number } | null; team_people: { display_name: string } | null }>(ids, (part) =>
+          supabase.from("rota_plan_slots").select("service_id, person_id, slot_index, roles(name, sort_order), team_people(display_name)").in("service_id", part).not("person_id", "is", null)
+        )
+      : Promise.resolve([]),
+  ]);
+
+  const by = <T extends { service_id: string }>(rows: T[]) => {
+    const m = new Map<string, T[]>();
+    for (const r of rows) m.set(r.service_id, [...(m.get(r.service_id) ?? []), r]);
+    return m;
+  };
+  const aBy = by(assignments), lBy = by(legacy), sBy = by(songs), pBy = by(plan);
+
+  return services.map((s) => {
+    const asg: PersonInRole[] = (aBy.get(s.id) ?? []).map((a) => ({ role: a.roles, name: nameOf(a.profiles), needsCover: a.status === "needs_substitute" }));
+    const hist: PersonInRole[] = (lBy.get(s.id) ?? []).map((l) => ({ role: l.roles, name: l.person_name }));
+    const planned: PersonInRole[] = (pBy.get(s.id) ?? []).sort((a, b) => a.slot_index - b.slot_index).map((p) => ({ role: p.roles, name: p.team_people?.display_name }));
+    return {
+      id: s.id,
+      title: s.title,
+      date: s.service_date,
+      time: formatTime(s.start_time),
+      status: s.status,
+      theme: s.theme,
+      preacher: s.preacher,
+      otherItems: s.other_items,
+      band: buildBand({ publishedRota: s.published_rota, assignments: asg, legacy: hist, plan: s.status === "draft" ? planned : [], roleOrder }),
+      songs: (sBy.get(s.id) ?? []).filter((x) => x.songs).map((x) => ({ order: x.order_index, title: x.songs!.title, key: x.key_override || x.songs!.default_key })),
+    };
+  });
 }
 
 export default function Schedule() {
-  const [mode, setMode] = useState<"upcoming" | "past">("upcoming");
+  const { isTeamLead, isAdmin } = useAuth();
+  const planner = isTeamLead || isAdmin;
+  const [params, setParams] = useSearchParams();
+  const thisMonth = todayISO().slice(0, 7);
+  const month = /^\d{4}-\d{2}$/.test(params.get("m") ?? "") ? params.get("m")! : thisMonth;
+  const go = (m: string) => setParams(m === thisMonth ? {} : { m }, { replace: true });
+  const { from, to } = monthRange(month);
+  const today = todayISO();
 
-  const { data: past, isLoading: pastLoading } = useQuery({
-    queryKey: ["past-services"],
-    enabled: mode === "past",
-    queryFn: async () => {
-      const [services, setlists, legacy] = await Promise.all([
-        supabase
-          .from("services")
-          .select("id,title,service_date,start_time")
-          .is("archived_at", null)
-          .in("status", ["published", "completed"])
-          .lt("service_date", todayISO())
-          .order("service_date", { ascending: false })
-          .limit(400),
-        supabase
-          .from("service_songs")
-          .select("service_id, order_index, songs(title)")
-          .order("order_index"),
-        // Band line: spreadsheet-era names (works before anyone signs up)
-        supabase.from("legacy_assignments").select("service_id, person_name"),
-      ]);
-      const ids = new Set((services.data ?? []).map((s) => s.id));
-      const { data: realAssignments } = ids.size
-        ? await supabase
-            .from("assignments")
-            .select("service_id, profiles!assignments_profile_id_fkey(preferred_name,full_name)")
-            .in("service_id", [...ids])
-            .in("status", ["confirmed", "invited"])
-        : { data: [] };
-      const songsByService = new Map<string, string[]>();
-      for (const ss of setlists.data ?? []) {
-        const t = (ss.songs as { title: string } | null)?.title;
-        if (!t) continue;
-        const list = songsByService.get(ss.service_id) ?? [];
-        list.push(t);
-        songsByService.set(ss.service_id, list);
-      }
-      const bandByService = new Map<string, Set<string>>();
-      const addBand = (sid: string, name: string | null | undefined) => {
-        if (!name || !ids.has(sid)) return;
-        const set = bandByService.get(sid) ?? new Set();
-        set.add(name);
-        bandByService.set(sid, set);
-      };
-      for (const a of realAssignments ?? []) {
-        const p = a.profiles as { preferred_name: string | null; full_name: string } | null;
-        addBand(a.service_id, p?.preferred_name || p?.full_name);
-      }
-      for (const l of legacy.data ?? []) addBand(l.service_id, l.person_name);
-      return { services: (services.data ?? []) as ScheduleService[], songsByService, bandByService };
-    },
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ["master-schedule", month, planner],
+    queryFn: () => loadSchedule(from, to, planner),
   });
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["master-schedule"],
-    queryFn: async () => {
-      const { data: services } = await supabase
-        .from("services")
-        .select("id,title,service_date,start_time")
-        .is("archived_at", null)
-        .in("status", ["published"])
-        .gte("service_date", todayISO())
-        .order("service_date")
-        .limit(20);
-      const ids = (services ?? []).map((s) => s.id);
-      const byService = new Map<string, RotaRow[]>();
-      if (ids.length === 0) return { services: [] as ScheduleService[], byService };
-      const { data: assignments } = await supabase
-        .from("assignments")
-        .select("service_id, status, roles(name,sort_order), profiles!assignments_profile_id_fkey(preferred_name,full_name)")
-        .in("service_id", ids)
-        .in("status", ["invited", "confirmed"]);
-      for (const a of (assignments ?? []) as RotaRow[]) {
-        const list = byService.get(a.service_id) ?? [];
-        list.push(a);
-        byService.set(a.service_id, list);
-      }
-      return { services: (services ?? []) as ScheduleService[], byService };
-    },
-  });
-
-  if (isLoading && mode === "upcoming") return <Spinner label="Loading the schedule…" />;
+  const upcoming = (data ?? []).filter((s) => s.date >= today);
+  const nextId = upcoming[0]?.id;
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title="Master schedule"
-        subtitle={mode === "upcoming" ? "Everyone serving, every upcoming service." : "Every service and setlist, back to 2021."}
-        action={<CsvExport />}
-      />
-      <div className="grid grid-cols-2 gap-2">
-        <button className={mode === "upcoming" ? "btn-primary" : "btn-secondary"} onClick={() => setMode("upcoming")}>
-          Upcoming
+      <PageHeader title="Master schedule" subtitle="Who's serving and what we're singing, month by month." action={<CsvExport month={month} planner={planner} />} />
+
+      <div className="flex items-center justify-between gap-2">
+        <button className="btn-ghost px-2" aria-label="Previous month" onClick={() => go(shiftMonth(month, -1))}>
+          <ChevronLeft size={20} />
         </button>
-        <button className={mode === "past" ? "btn-primary" : "btn-secondary"} onClick={() => setMode("past")}>
-          Past ({past?.services.length ?? "…"})
+        <div className="text-center min-w-0">
+          <label className="relative inline-flex items-center justify-center cursor-pointer">
+            <h2 className="font-display font-bold text-lg">{monthLabel(month)}</h2>
+            <input
+              type="month"
+              className="absolute inset-0 opacity-0 cursor-pointer"
+              aria-label="Jump to month"
+              value={month}
+              min="2021-01"
+              onChange={(e) => /^\d{4}-\d{2}$/.test(e.target.value) && go(e.target.value)}
+            />
+          </label>
+          <p className="text-soft text-xs">
+            {data ? `${data.length} service${data.length === 1 ? "" : "s"}${upcoming.length && upcoming.length < data.length ? ` · ${upcoming.length} to come` : ""}` : " "}
+            {month !== thisMonth && (
+              <button className="ml-2 text-accent-strong font-semibold hover:underline min-h-0" onClick={() => go(thisMonth)}>
+                This month
+              </button>
+            )}
+          </p>
+        </div>
+        <button className="btn-ghost px-2" aria-label="Next month" onClick={() => go(shiftMonth(month, 1))}>
+          <ChevronRight size={20} />
         </button>
       </div>
 
-      {mode === "past" &&
-        (pastLoading ? (
-          <Spinner label="Digging through the archives…" />
-        ) : (
-          (past?.services ?? []).map((s) => {
-            const setlist = past!.songsByService.get(s.id) ?? [];
-            return (
-              <Link key={s.id} to={`/services/${s.id}`} className="card block p-4 hover:shadow-raised transition-shadow">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-sm truncate">{s.title}</p>
-                    <p className="text-soft text-xs">{formatDate(s.service_date)}</p>
-                  </div>
-                  <ChevronRight size={16} className="text-faint shrink-0" />
-                </div>
-                {(past!.bandByService.get(s.id)?.size ?? 0) > 0 && (
-                  <p className="text-soft text-xs mt-1.5 truncate">
-                    🎤 {[...past!.bandByService.get(s.id)!].join(" · ")}
-                  </p>
-                )}
-                {setlist.length > 0 && (
-                  <p className="text-faint text-xs mt-1 truncate">🎵 {setlist.join(" · ")}</p>
-                )}
-              </Link>
-            );
-          })
-        ))}
-
-      {mode === "upcoming" && data!.services.length === 0 && (
+      {isLoading ? (
+        <Spinner label="Loading the schedule…" />
+      ) : error ? (
+        <ErrorState message={(error as Error).message} retry={() => refetch()} />
+      ) : data!.length === 0 ? (
         <EmptyState
           icon={<CalendarDays />}
-          title="No published services yet"
-          body="Once a rota is published, the full team schedule appears here."
+          title={`Nothing in ${monthLabel(month)}`}
+          body={planner ? "No services this month." : "Rotas appear here once they're published."}
         />
+      ) : (
+        <div className="space-y-3">
+          {data!.map((s) => (
+            <ServiceCard key={s.id} s={s} past={s.date < today} next={s.id === nextId} planner={planner} />
+          ))}
+        </div>
       )}
-      {mode === "upcoming" &&
-        data!.services.map((s) => {
-          const rota = (data!.byService.get(s.id) ?? []).sort(
-            (a, b) =>
-              ((a.roles as { sort_order: number } | null)?.sort_order ?? 0) -
-              ((b.roles as { sort_order: number } | null)?.sort_order ?? 0)
-          );
-          return (
-            <Card key={s.id}>
-              <Link to={`/services/${s.id}`} className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="font-display font-bold">{s.title}</p>
-                  <p className="text-soft text-sm">
-                    {formatDate(s.service_date)} · {formatTime(s.start_time)}
-                  </p>
-                </div>
-                <ChevronRight size={18} className="text-faint" />
-              </Link>
-              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
-                {rota.map((a, i) => (
-                  <div key={i} className="flex justify-between text-sm border-b border-line/60 py-1">
-                    <dt className="text-soft">{(a.roles as { name: string } | null)?.name}</dt>
-                    <dd className="font-semibold">
-                      {(a.profiles as { preferred_name: string | null; full_name: string } | null)?.preferred_name ||
-                        (a.profiles as { full_name: string } | null)?.full_name}
-                    </dd>
-                  </div>
-                ))}
-                {rota.length === 0 && <p className="text-faint text-sm">Rota being finalised…</p>}
-              </dl>
-            </Card>
-          );
-        })}
     </div>
   );
 }
 
-/** Change request #9: download the master schedule between any two dates as CSV. */
-function CsvExport() {
+function ServiceCard({ s, past, next, planner }: { s: ScheduleEntry; past: boolean; next: boolean; planner: boolean }) {
+  const notes = [s.theme && `Theme: ${s.theme}`, s.preacher && `Preach: ${s.preacher}`, s.otherItems].filter(Boolean).join(" · ");
+  return (
+    <Card className={`${past ? "opacity-75" : ""} ${next ? "!border-accent/50" : ""}`}>
+      <Link to={`/services/${s.id}`} className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-display font-bold">{formatDate(s.date)}</p>
+          <p className="text-soft text-sm truncate">
+            {s.time} · {s.title}
+          </p>
+          {notes && <p className="text-soft text-xs mt-0.5">{notes}</p>}
+        </div>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {next && <Badge tone="accent">Next</Badge>}
+          {planner && s.status === "draft" && <Badge tone="warning">not published</Badge>}
+          <ChevronRight size={18} className="text-faint" />
+        </div>
+      </Link>
+
+      {s.band.lines.length > 0 ? (
+        <dl className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          {s.band.lines.map((l) => (
+            <div key={l.role} className="flex items-baseline justify-between gap-3 text-sm border-b border-line/60 py-1.5">
+              <dt className="text-soft shrink-0">{l.role}</dt>
+              <dd className="font-semibold text-right">
+                {l.names.join(", ")}
+                {l.needsCover && <span className="ml-1.5 text-danger text-xs font-semibold">needs cover</span>}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="mt-2 text-faint text-sm">{past ? "Nobody recorded for this service." : "Rota not published yet."}</p>
+      )}
+      {s.band.source === "plan" && <p className="text-xs text-warning mt-1.5">Planned, not published — only team leads see this.</p>}
+      {s.band.source === "history" && <p className="text-xs text-faint mt-1.5">From the old spreadsheet.</p>}
+
+      {s.songs.length > 0 && (
+        <p className="mt-2.5 text-sm flex gap-2">
+          <ListMusic size={16} className="text-accent shrink-0 mt-0.5" />
+          <span className="text-soft">{setLine(s.songs)}</span>
+        </p>
+      )}
+    </Card>
+  );
+}
+
+/** Download the schedule between any two dates (defaults to the month shown). */
+function CsvExport({ month, planner }: { month: string; planner: boolean }) {
   const [open, setOpen] = useState(false);
-  const [from, setFrom] = useState(todayISO());
-  const [to, setTo] = useState(() => {
-    const d = new Date();
-    d.setMonth(d.getMonth() + 2);
-    return toLocalISODate(d);
-  });
+  const [range, setRange] = useState(() => monthRange(month));
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function download() {
     setBusy(true);
+    setErr(null);
     try {
-      const { data: services } = await supabase
-        .from("services")
-        .select("id,title,service_date,start_time")
-        .is("archived_at", null)
-        .in("status", ["published", "completed"])
-        .gte("service_date", from)
-        .lte("service_date", to)
-        .order("service_date");
-      const ids = (services ?? []).map((s) => s.id);
-      const { data: assignments } = ids.length
-        ? await supabase
-            .from("assignments")
-            .select("service_id, status, roles(name,sort_order), profiles!assignments_profile_id_fkey(preferred_name,full_name)")
-            .in("service_id", ids)
-            .in("status", ["invited", "confirmed"])
-        : { data: [] };
-      const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
-      const lines = ["Date,Time,Service,Role,Volunteer,Status"];
-      for (const s of services ?? []) {
-        const rota = (assignments ?? [])
-          .filter((a) => a.service_id === s.id)
-          .sort(
-            (a, b) =>
-              ((a.roles as { sort_order: number } | null)?.sort_order ?? 0) -
-              ((b.roles as { sort_order: number } | null)?.sort_order ?? 0)
-          );
-        for (const a of rota) {
-          const p = a.profiles as { preferred_name: string | null; full_name: string } | null;
-          lines.push(
-            [
-              s.service_date,
-              formatTime(s.start_time),
-              esc(s.title),
-              esc((a.roles as { name: string } | null)?.name ?? ""),
-              esc(p?.preferred_name || p?.full_name || ""),
-              a.status,
-            ].join(",")
-          );
-        }
-        if (rota.length === 0) lines.push([s.service_date, formatTime(s.start_time), esc(s.title), "", "", ""].join(","));
-      }
-      const blob = new Blob([lines.join("\n")], { type: "text/csv" });
+      const rows = await loadSchedule(range.from, range.to, planner);
+      const csv = scheduleCsv(rows.map((r) => ({ date: r.date, time: r.time, title: r.title, theme: r.theme, preacher: r.preacher, band: r.band, songs: r.songs })));
       const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = `master-schedule-${from}-to-${to}.csv`;
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+      a.download = `master-schedule-${range.from}-to-${range.to}.csv`;
       a.click();
       setOpen(false);
+    } catch (e) {
+      setErr((e as Error).message);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="relative">
-      <button className="btn-secondary" onClick={() => setOpen((o) => !o)}>
+    <>
+      <button
+        className="btn-secondary"
+        onClick={() => {
+          setRange(monthRange(month));
+          setOpen(true);
+        }}
+      >
         <Download size={16} /> CSV
       </button>
-      {open && (
-        <div className="absolute right-0 mt-2 z-30 card p-4 w-64 shadow-raised">
-          <label className="block text-xs font-semibold mb-1">From</label>
-          <input type="date" className="input mb-2" value={from} onChange={(e) => setFrom(e.target.value)} />
-          <label className="block text-xs font-semibold mb-1">To</label>
-          <input type="date" className="input mb-3" value={to} onChange={(e) => setTo(e.target.value)} />
-          <button className="btn-primary w-full" onClick={download} disabled={busy || !from || !to}>
+      <Modal open={open} onClose={() => setOpen(false)} title="Download the schedule">
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="From">
+              <input type="date" className="input" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
+            </Field>
+            <Field label="To">
+              <input type="date" className="input" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
+            </Field>
+          </div>
+          <p className="text-xs text-soft">One row per person and per song. Opens in Excel or Google Sheets.</p>
+          {err && <p className="text-sm text-danger" role="alert">{err}</p>}
+          <button className="btn-primary w-full" onClick={download} disabled={busy || !range.from || !range.to || range.from > range.to}>
             {busy ? "Building…" : "Download CSV"}
           </button>
         </div>
-      )}
-    </div>
+      </Modal>
+    </>
   );
 }

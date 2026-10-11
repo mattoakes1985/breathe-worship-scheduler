@@ -44,3 +44,22 @@ export function toLocalISODate(d: Date): string {
 export function todayISO(): string {
   return toLocalISODate(new Date());
 }
+
+/** First and last day of a "YYYY-MM" month, as local calendar dates. */
+export function monthRange(month: string) {
+  const [y, m] = month.split("-").map(Number);
+  const last = new Date(y, m, 0).getDate();
+  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
+}
+
+/** "YYYY-MM" moved by `delta` months. */
+export function shiftMonth(month: string, delta: number) {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** "October 2026" for "2026-10". */
+export function monthLabel(month: string) {
+  return new Date(+month.slice(0, 4), +month.slice(5, 7) - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+}

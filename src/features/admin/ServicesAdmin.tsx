@@ -128,7 +128,7 @@ export default function ServicesAdmin() {
                 setSelected(next);
               }}
             />
-            <Link to={`/team-lead/services/${s.id}/build`} className="flex-1 min-w-0">
+            <Link to={`/services/${s.id}`} className="flex-1 min-w-0">
               <p className="font-semibold text-sm truncate">{s.title}</p>
               <p className="text-soft text-xs">
                 {formatDate(s.service_date)} · {formatTime(s.start_time)}

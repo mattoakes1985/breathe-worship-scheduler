@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00028 (contact privacy, service dates, planner, month grid, pairings, publish + service leaders, song shortlist).
+// after migrations 00014-00029 (contact privacy, service dates, planner, month grid, pairings, publish + service leaders, song shortlist, swaps follow the plan).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -2422,6 +2422,10 @@ export type Database = {
         Returns: undefined
       }
       publish_month: { Args: { p_month: string }; Returns: Json }
+      refresh_published_rota: {
+        Args: { p_service_id: string }
+        Returns: undefined
+      }
       rename_song_tag: {
         Args: { p_new: string; p_old: string }
         Returns: number

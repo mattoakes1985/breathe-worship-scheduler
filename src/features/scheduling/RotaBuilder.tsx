@@ -2,7 +2,7 @@
 // auto-suggest panel (pure engine), clash warnings, explicit logged overrides.
 // The engine proposes; the Team Lead decides; nothing auto-publishes.
 import { useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Lock, Sparkles, Unlock, X } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
@@ -223,6 +223,11 @@ export default function RotaBuilder() {
         subtitle={`${formatDate(service.service_date)} · ${formatTime(service.start_time)}`}
         action={<Badge tone={statusBadgeTone(service.status)}>{service.status.replace(/_/g, " ")}</Badge>}
       />
+
+      <p className="card !border-warning/40 bg-warning-soft/40 text-sm p-3">
+        Rotas are now made in the <Link className="font-semibold text-accent-strong underline" to={`/team-lead/planner?m=${service.service_date.slice(0, 7)}`}>Planner</Link>.
+        This older screen only edits app assignments, and publishing the month from the Planner replaces them.
+      </p>
 
       {warn && (
         <p className="card !border-danger/40 bg-danger-soft/50 text-danger text-sm p-3 flex items-center gap-2" role="alert">

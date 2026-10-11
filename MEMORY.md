@@ -289,3 +289,9 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Why:** Matt: the set-picking tools were "not anywhere near as good as the master song list"; leads list songs they're considering and search for songs that work in the key.
 - **Made by:** Matt (need), Claude (design)
 - **Status:** Live
+
+## [2026-10-11] Master schedule by month; review fixes
+- **Decision:** /schedule shows one month at a time (prev/next, jump to any month, URL `?m=YYYY-MM`), merging the old Upcoming/Past views. Band per service comes from the published band, else app assignments, else spreadsheet history, else (team leads/admins only) the unpublished plan — never mixed (`scheduleModel.buildBand`). Songs with keys, theme, preacher and other items shown; cover requests flagged. CSV export defaults to the month shown and includes songs.
+- **Review fixes:** approved swaps now move the plan slot (locked) and refresh the published band, so re-publishing no longer undoes a swap, and claim_swap accepts team-list instruments (00029). Team Lead dashboard and Admin → Services open the service page and show plan state (lead, picks, published or not) instead of the old app-only availability count. The old rota builder carries a notice that the Planner is the source of truth. Planner added to the mobile quick links.
+- **Made by:** Matt (month paging, review request), Claude (fixes)
+- **Status:** Live

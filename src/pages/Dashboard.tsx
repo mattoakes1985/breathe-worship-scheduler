@@ -225,6 +225,11 @@ export default function Dashboard() {
             </Link>
           )}
           {(isTeamLead || isAdmin) && (
+            <Link to="/team-lead/planner" className="chip bg-accent-soft text-accent-strong !min-h-[40px]">
+              Planner
+            </Link>
+          )}
+          {(isTeamLead || isAdmin) && (
             <Link to="/team-lead/songs" className="chip bg-accent-soft text-accent-strong !min-h-[40px]">
               Songs
             </Link>

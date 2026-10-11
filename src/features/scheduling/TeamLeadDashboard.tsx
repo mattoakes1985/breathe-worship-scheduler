@@ -11,7 +11,7 @@ export default function TeamLeadDashboard() {
     queryKey: ["team-lead-dashboard"],
     queryFn: async () => {
       const today = todayISO();
-      const [services, openSwaps, needsSub, activeMembers] = await Promise.all([
+      const [services, openSwaps, needsSub] = await Promise.all([
         supabase
           .from("services")
           .select("id,title,service_date,status,scheduling_locked")
@@ -26,22 +26,24 @@ export default function TeamLeadDashboard() {
           .select("id, services!inner(id,title,service_date)")
           .eq("status", "needs_substitute")
           .gte("services.service_date", today),
-        supabase.from("team_memberships").select("profile_id").eq("is_active", true),
       ]);
+      // The planner is where rotas are made: show who's down to lead and how full each plan is.
       const ids = (services.data ?? []).map((s) => s.id);
-      const responses = ids.length
-        ? await supabase.from("availability_responses").select("service_id, profile_id").in("service_id", ids)
+      const slots = ids.length
+        ? await supabase.from("rota_plan_slots").select("service_id, person_id, roles(name), team_people(display_name)").in("service_id", ids).not("person_id", "is", null)
         : { data: [] };
-      const respByService = new Map<string, number>();
-      for (const r of responses.data ?? []) {
-        respByService.set(r.service_id, (respByService.get(r.service_id) ?? 0) + 1);
+      const plan = new Map<string, { picks: number; lead: string[] }>();
+      for (const r of (slots.data ?? []) as { service_id: string; roles: { name: string } | null; team_people: { display_name: string } | null }[]) {
+        const p = plan.get(r.service_id) ?? { picks: 0, lead: [] };
+        p.picks++;
+        if (r.roles?.name === "Worship Leader" && r.team_people) p.lead.push(r.team_people.display_name);
+        plan.set(r.service_id, p);
       }
       return {
         services: services.data ?? [],
         openSwaps: openSwaps.data ?? [],
         needsSub: needsSub.data ?? [],
-        teamSize: (activeMembers.data ?? []).length,
-        respByService,
+        plan,
       };
     },
   });
@@ -104,27 +106,21 @@ export default function TeamLeadDashboard() {
         ) : (
           <div className="space-y-2">
             {data!.services.map((s) => {
-              const responded = data!.respByService.get(s.id) ?? 0;
-              const pending = Math.max(0, data!.teamSize - responded);
+              const p = data!.plan.get(s.id);
               return (
                 <Link
                   key={s.id}
-                  to={`/team-lead/services/${s.id}/build`}
+                  to={`/services/${s.id}`}
                   className="card flex items-center gap-3 p-4 hover:shadow-raised transition-shadow"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">{s.title}</p>
-                    <p className="text-soft text-xs">
-                      {formatDate(s.service_date)}
-                      {s.status === "availability_open" && (
-                        <span className={pending > 0 ? "text-warning font-semibold" : "text-positive font-semibold"}>
-                          {" "}
-                          · {pending > 0 ? `${pending} yet to respond` : "everyone has responded"}
-                        </span>
-                      )}
+                    <p className="font-semibold text-sm truncate">{formatDate(s.service_date)}</p>
+                    <p className="text-soft text-xs truncate">
+                      {p?.lead.length ? `Lead: ${p.lead.join(" & ")}` : <span className="text-warning font-semibold">No lead planned</span>}
+                      {p ? ` · ${p.picks} planned` : " · not planned yet"}
                     </p>
                   </div>
-                  <Badge tone={statusBadgeTone(s.status)}>{s.status.replace(/_/g, " ")}</Badge>
+                  <Badge tone={s.status === "draft" ? "warning" : statusBadgeTone(s.status)}>{s.status === "draft" ? "not published" : s.status.replace(/_/g, " ")}</Badge>
                   <ChevronRight size={18} className="text-faint" />
                 </Link>
               );

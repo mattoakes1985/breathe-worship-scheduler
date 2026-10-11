@@ -103,17 +103,8 @@ export async function publishMonth(month: string): Promise<PublishResult> {
   return data as unknown as PublishResult;
 }
 
-export function monthRange(month: string) {
-  const [y, m] = month.split("-").map(Number);
-  const last = new Date(y, m, 0).getDate();
-  return { from: `${month}-01`, to: `${month}-${String(last).padStart(2, "0")}` };
-}
-
-export function shiftMonth(month: string, delta: number) {
-  const [y, m] = month.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
+import { monthRange, shiftMonth } from "@/lib/format";
+export { monthRange, shiftMonth };
 
 export type MonthService = Pick<Tables<"services">, "id" | "title" | "service_date" | "start_time" | "status" | "is_all_in" | "linked_service_id" | "published_at"> & {
   requirements: { role_id: string; quantity_required: number }[];
