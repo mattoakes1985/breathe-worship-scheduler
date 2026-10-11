@@ -245,3 +245,24 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Made by:** Matt
 - **Status:** Confirmed
 
+## [2026-10-11] One Sunday service a week; planner plans a day at a time
+- **Decision:** August and September 2026 were single services; the 12 09:15 template services were archived and the 09:15 template switched off (00022). Going forward there is one service a week except special events. The planner now plans each day as a whole (core roles across every service that day first, then the scarcest slots across the day), so two services on one day share people instead of the first taking everyone. Linked services still share one band.
+- **Why:** Matt's August test: the unlinked 09:15 took everyone who said yes, leaving the 11:15 with only a lead or nobody.
+- **Made by:** Matt (single service), Claude (planner fix)
+- **Status:** Confirmed, live
+
+## [2026-10-11] "No answer" stays "not available"
+- **Decision:** People who don't fill in the availability form are not scheduled. (In August, 1–4 people a Sunday served without answering; Matt chose to keep the rule so people fill in the form.)
+- **Made by:** Matt
+- **Status:** Confirmed
+
+## [2026-10-11] "Always plays" an instrument
+- **Decision:** `team_people.always_role_id`: an instrument a person plays whenever they serve, in any role. Dave Asplin: acoustic (whether leading or on vox). The planner fills that slot with them whenever they're placed, and won't place them in another role on a service where that instrument is already taken. Distinct from `leads_on_role_id` (only when leading).
+- **Made by:** Matt ("Dave A will do vox but he'll never not play acoustic")
+- **Status:** Confirmed, live
+
+## [2026-10-11] Month grid matches the master sheet
+- **Decision:** Planner → Month grid reproduces the sheet: Theme, Date (DOUBLE for linked services, times as "11.15"), Other Items, Preach, role rows from `team_settings.grid_rows` (default 2× Lead, 2× Vox, Acoustic, Electric, Keys, Bass, Drums, PA), Events before PA, Songs block ("1. Title - Key 142bpm 4/4", click shown only when it differs from the meter) with running-order lines placed by `service_order_items.after_song`, then Availability (who said yes). Exports: copy as text, .xlsx in the sheet's colours, landscape print. iKnow export still deferred.
+- **Made by:** Matt (WO-4), Claude (layout read from the AUGUST 2026 tab)
+- **Status:** Live
+
