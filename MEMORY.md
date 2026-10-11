@@ -256,7 +256,7 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Made by:** Matt
 - **Status:** Confirmed
 
-## [2026-10-11] "Always plays" an instrument
+## [2026-10-11] "Always plays" an instrument (superseded the same day by role pairings, below)
 - **Decision:** `team_people.always_role_id`: an instrument a person plays whenever they serve, in any role. Dave Asplin: acoustic (whether leading or on vox). The planner fills that slot with them whenever they're placed, and won't place them in another role on a service where that instrument is already taken. Distinct from `leads_on_role_id` (only when leading).
 - **Made by:** Matt ("Dave A will do vox but he'll never not play acoustic")
 - **Status:** Confirmed, live
@@ -265,4 +265,10 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Decision:** Planner → Month grid reproduces the sheet: Theme, Date (DOUBLE for linked services, times as "11.15"), Other Items, Preach, role rows from `team_settings.grid_rows` (default 2× Lead, 2× Vox, Acoustic, Electric, Keys, Bass, Drums, PA), Events before PA, Songs block ("1. Title - Key 142bpm 4/4", click shown only when it differs from the meter) with running-order lines placed by `service_order_items.after_song`, then Availability (who said yes). Exports: copy as text, .xlsx in the sheet's colours, landscape print. iKnow export still deferred.
 - **Made by:** Matt (WO-4), Claude (layout read from the AUGUST 2026 tab)
 - **Status:** Live
+
+## [2026-10-11] Per-person role pairings (role_links)
+- **Decision:** `team_people.role_links` holds how a person's roles pair up on one service, replacing always_role_id / leads_on_role_id / combinable_role_ids. Modes: **only with** (`requires`: on A they're always on B, and aren't put on A if B is taken), **usually with** (`also`: on A they take B too if it's free, otherwise just A), **can also do** (`can`: may hold both; only used when no one else is free, flagged on the slot). Roles without a pairing are never doubled (e.g. keys + lead). Live: Dave Asplin: Lead and Vox only with Acoustic; Peter: Vox only with Acoustic; Baz Royle: Vox only with Acoustic; Tim Davies and Ethan Barrett: BV usually with Keys (Ethan given Backing Vocals as an instrument). Jo Atkinson leads without a guitar.
+- **Why:** Stated by Matt one case at a time; a single structure covers all of them and future ones.
+- **Made by:** Matt (rules), Claude (structure)
+- **Status:** Live (00023, 00024, 00024b). Open: Matt says "BV" for Baz, whose instrument is Vocalist; applied to Vocalist pending confirmation.
 
