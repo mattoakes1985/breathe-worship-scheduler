@@ -25,16 +25,16 @@ export default function Planner() {
   };
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "plan", label: "Month plan" },
-    { id: "grid", label: "Month grid" },
-    { id: "import", label: "Import availability" },
+    { id: "import", label: "1 · Import form" },
+    { id: "plan", label: "2 · Plan & publish" },
+    { id: "grid", label: "3 · Month grid" },
     { id: "team", label: "Team list" },
     { id: "rules", label: "Rules" },
   ];
 
   return (
     <div className="space-y-4">
-      <div className="print:hidden"><PageHeader back="/team-lead" title="Planner" subtitle="Build the month's rota from the availability form." /></div>
+      <div className="print:hidden"><PageHeader back="/" title="Planner" subtitle="Import the month's form, plan the band, publish it." /></div>
       <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1 print:hidden" role="tablist" aria-label="Planner sections">
         {tabs.map((t) => (
           <button

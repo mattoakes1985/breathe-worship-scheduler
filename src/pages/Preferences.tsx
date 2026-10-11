@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Card, Field, PageHeader, Spinner } from "@/components/ui";
+import { FEATURES } from "@/lib/features";
 
 export default function Preferences() {
   const { session, profile, refreshProfile } = useAuth();
@@ -98,7 +99,7 @@ export default function Preferences() {
   const save = useMutation({
     mutationFn: async () => {
       const [{ error: e1 }, { error: e2 }, { error: e3 }] = await Promise.all([
-        supabase.from("serving_preferences").upsert(
+        !FEATURES.servingPreferences ? Promise.resolve({ error: null }) : supabase.from("serving_preferences").upsert(
           {
             profile_id: uid,
             team_id: null,
@@ -131,9 +132,10 @@ export default function Preferences() {
     <div className="space-y-6">
       <PageHeader
         title="Preferences"
-        subtitle="How often you'd like to serve — separate from your availability, and always your call."
+        subtitle={FEATURES.servingPreferences ? "How often you'd like to serve — separate from your availability, and always your call." : "Your details and your rota in your calendar."}
       />
 
+      {FEATURES.servingPreferences && (
       <Card>
         <h2 className="font-display font-bold mb-1">Serving frequency</h2>
         <p className="text-soft text-sm mb-4">
@@ -174,8 +176,9 @@ export default function Preferences() {
           </Field>
         </div>
       </Card>
+      )}
 
-      {(myRoles ?? []).length > 0 && (
+      {FEATURES.servingPreferences && (myRoles ?? []).length > 0 && (
         <Card>
           <h2 className="font-display font-bold mb-1">Instrument preference</h2>
           <p className="text-soft text-sm mb-4">
@@ -248,7 +251,7 @@ export default function Preferences() {
       </Card>
 
       <button className="btn-primary w-full" onClick={() => save.mutate()} disabled={save.isPending}>
-        {save.isPending ? "Saving…" : saved ? "Saved ✓" : "Save preferences"}
+        {save.isPending ? "Saving…" : saved ? "Saved ✓" : "Save"}
       </button>
     </div>
   );

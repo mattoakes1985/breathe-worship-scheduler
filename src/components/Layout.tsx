@@ -22,6 +22,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase/client";
 import { Modal } from "./ui";
 import { formatDateTime } from "@/lib/format";
+import { FEATURES } from "@/lib/features";
 
 function useDarkMode() {
   const [dark, setDark] = useState(
@@ -35,12 +36,13 @@ function useDarkMode() {
   return { dark, toggle: () => setDark((d) => !d) };
 }
 
-const tabs = [
+type NavItem = { to: string; label: string; icon: typeof Home; end?: boolean };
+const baseTabs: NavItem[] = [
   { to: "/", label: "Home", icon: Home, end: true },
-  { to: "/availability", label: "Availability", icon: CalendarCheck },
+  ...(FEATURES.availability ? [{ to: "/availability", label: "Availability", icon: CalendarCheck }] : []),
   { to: "/schedule", label: "Schedule", icon: CalendarDays },
-  { to: "/swaps", label: "Swaps", icon: Repeat },
-  { to: "/stats", label: "My stats", icon: BarChart3 },
+  ...(FEATURES.swaps ? [{ to: "/swaps", label: "Swaps", icon: Repeat }] : []),
+  ...(FEATURES.myStats ? [{ to: "/stats", label: "My stats", icon: BarChart3 }] : []),
 ];
 
 export default function Layout() {
@@ -81,8 +83,16 @@ export default function Layout() {
     qc.invalidateQueries({ queryKey: ["notifications-unread"] });
   }
 
-  const sideLinks = [
-    ...tabs,
+  // Phones: planners get Planner and Songs in the tab bar (5 max); everyone else gets Preferences.
+  const planner = isTeamLead || isAdmin;
+  const tabs: NavItem[] = [
+    ...baseTabs,
+    ...(planner
+      ? [{ to: "/team-lead/planner", label: "Planner", icon: CalendarRange }, { to: "/team-lead/songs", label: "Songs", icon: Music }]
+      : [{ to: "/profile/preferences", label: "Settings", icon: Settings }]),
+  ].slice(0, 5);
+  const sideLinks: NavItem[] = [
+    ...baseTabs,
     ...(isTeamLead ? [{ to: "/team-lead", label: "Team Lead", icon: Users, end: false }] : []),
     ...(isTeamLead || isAdmin ? [{ to: "/team-lead/planner", label: "Planner", icon: CalendarRange, end: false }] : []),
     ...(isTeamLead || isAdmin ? [{ to: "/team-lead/songs", label: "Songs", icon: Music, end: false }] : []),

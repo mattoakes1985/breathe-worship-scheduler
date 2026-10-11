@@ -1,9 +1,10 @@
 // WO-3 month plan: run the auto-planner, then adjust by hand. Every slot shows
 // why it was filled, which soft rules were relaxed, and warnings for manual picks.
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import PersonPicker from "./PersonPicker";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { AlertOctagon, AlertTriangle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Info, Lock, Send, Sparkles, Unlock, Users, Wand2 } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, FileUp, ChevronDown, ChevronLeft, ChevronRight, Info, Lock, Send, Sparkles, Unlock, Users, Wand2 } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, EmptyState, ErrorState, Modal, Spinner } from "@/components/ui";
 import { formatDate, formatTime } from "@/lib/format";
@@ -115,7 +116,12 @@ export default function MonthPlan({ month, setMonth }: { month: string; setMonth
       </div>
 
       {services.length === 0 ? (
-        <EmptyState icon={<Sparkles />} title="No services this month" body="Create the Sundays from a service template first, then come back to plan them." />
+        <EmptyState
+          icon={<Sparkles />}
+          title="No services this month yet"
+          body="Import this month's availability form — each date in it becomes a service or event, ready to plan."
+          action={<Link className="btn-primary" to={`/team-lead/planner?tab=import&m=${month}`}><FileUp size={16} /> Import the form</Link>}
+        />
       ) : (
         <>
           <div className="flex flex-wrap gap-2">

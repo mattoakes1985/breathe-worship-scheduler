@@ -161,14 +161,51 @@ export interface DateColumn {
   col: number;
   header: string;
   date: string; // YYYY-MM-DD
+  /** answers key: the date, or "date#2" for a second event on the same day */
+  key: string;
   allIn: boolean;
+  /** what the header says beyond the date, e.g. "Carols by Candlelight" */
+  title: string | null;
+  /** "HH:MM" if the header gives a time */
+  time: string | null;
+}
+
+const WEEKDAY_RE = /\b(sun|mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat)(?:day|nesday|rsday|urday|sday)?\b\.?/i;
+
+/** The extra things a date header says: an event name and a time.
+ *  "Saturday 15th August - Baptisms 6pm" -> { title: "Baptisms", time: "18:00" } */
+export function describeColumn(header: string): { title: string | null; time: string | null } {
+  let h = clean(header);
+  let time: string | null = null;
+  const ampm = h.match(/\b(\d{1,2})(?:[:.](\d{2}))?\s*(am|pm)\b/i);
+  const h24 = ampm ? null : h.match(/\b([01]?\d|2[0-3])[:.]([0-5]\d)\b/);
+  if (ampm) {
+    let hr = Number(ampm[1]) % 12;
+    if (/pm/i.test(ampm[3])) hr += 12;
+    time = `${pad(hr)}:${ampm[2] ?? "00"}`;
+    h = h.replace(ampm[0], " ");
+  } else if (h24) {
+    time = `${pad(Number(h24[1]))}:${h24[2]}`;
+    h = h.replace(h24[0], " ");
+  }
+  h = h
+    .replace(/\(?\s*all[\s-]?in\s*\)?/i, " ")
+    .replace(/\b\d{1,2}(?:st|nd|rd|th)?\s+(?:of\s+)?(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b(?:\s+\d{4})?/i, " ")
+    .replace(/\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?\b(?:,?\s+\d{4})?/i, " ")
+    .replace(WEEKDAY_RE, " ")
+    .replace(/\b(at|@)\b|[@()\[\]–—:-]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^[\s,.;&]+|[\s,.;&]+$/g, "");
+  const title = /[a-z]{2}/i.test(h) ? h.charAt(0).toUpperCase() + h.slice(1) : null;
+  return { title: title ? title.slice(0, 80) : null, time };
 }
 
 export interface FormEntry {
   rawName: string;
   key: string;
   submittedAt: string | null; // "YYYY-MM-DD HH:MM"
-  answers: Record<string, Answer | null>; // date -> answer
+  answers: Record<string, Answer | null>; // column key (date, or "date#2") -> answer
   request: string;
   superseded: number; // earlier submissions from the same name that were dropped
 }
@@ -237,11 +274,15 @@ export function interpretForm(grid: Grid, today: Date = new Date()): Interpreted
   const reference = refTimes.length ? new Date(Math.max(...refTimes)) : today;
 
   const dates: DateColumn[] = [];
+  const perDate = new Map<string, number>();
   header.forEach((h, col) => {
     if (col === nameCol || col === requestCol || col === submittedCol) return;
     const d = parseDateHeader(h);
     if (!d) return;
-    dates.push({ col, header: h, date: resolveYear(d.day, d.month, d.year, reference), allIn: /all[\s-]?in/i.test(h) });
+    const date = resolveYear(d.day, d.month, d.year, reference);
+    const n = (perDate.get(date) ?? 0) + 1;
+    perDate.set(date, n);
+    dates.push({ col, header: h, date, key: n === 1 ? date : `${date}#${n}`, allIn: /all[\s-]?in/i.test(h), ...describeColumn(h) });
   });
   if (dates.length === 0) throw new Error("Couldn't find any date columns (like \"Sunday 2nd August\").");
 
@@ -254,7 +295,7 @@ export function interpretForm(grid: Grid, today: Date = new Date()): Interpreted
       const raw = r[d.col] ?? "";
       const a = normaliseAnswer(raw);
       if (a === null && clean(raw)) problems.push(`${rawName}: didn't understand "${clean(raw).slice(0, 30)}" for ${d.header}`);
-      answers[d.date] = a;
+      answers[d.key] = a;
     }
     const entry = {
       rawName: rawName.slice(0, 120),
@@ -325,4 +366,62 @@ export function matchName(raw: string, aliases: Map<string, string>, people: Mat
     .slice(0, 4)
     .map((x) => x.p);
   return { personId: null, how: "none", suggestions: scored };
+}
+
+// ---------------------------------------------------------------- services from the form
+
+export interface ExistingService {
+  id: string;
+  service_date: string;
+  start_time: string | null; // "HH:MM:SS"
+  title: string;
+}
+
+export interface ColumnService {
+  key: string;
+  date: string;
+  /** an existing service this column's answers go to */
+  serviceId: string | null;
+  /** or a service to create */
+  create: { title: string; time: string; timeGuessed: boolean; allIn: boolean } | null;
+}
+
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const weekdayOf = (iso: string) => new Date(Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10))).getUTCDay();
+const hhmm = (t: string | null) => (t ? t.slice(0, 5) : null);
+
+/**
+ * The form decides the month's services: each date column is matched to an
+ * existing service on that date (same time if the header gives one, otherwise
+ * in time order); anything left over is created. Services in the month that no
+ * column matched are returned as `extras`.
+ */
+export function matchColumnsToServices(
+  dates: DateColumn[],
+  services: ExistingService[],
+  defaults: { sundayTitle: string; sundayTime: string }
+): { columns: ColumnService[]; extras: ExistingService[] } {
+  const used = new Set<string>();
+  const onDate = (d: string) => services.filter((s) => s.service_date === d).sort((a, b) => (a.start_time ?? "").localeCompare(b.start_time ?? ""));
+  const pick = new Map<string, string>();
+  // timed columns first, so an untimed column doesn't take their service
+  for (const c of dates.filter((c) => c.time)) {
+    const hit = onDate(c.date).find((s) => !used.has(s.id) && hhmm(s.start_time) === c.time);
+    if (hit) { used.add(hit.id); pick.set(c.key, hit.id); }
+  }
+  for (const c of dates.filter((c) => !c.time)) {
+    const hit = onDate(c.date).find((s) => !used.has(s.id));
+    if (hit) { used.add(hit.id); pick.set(c.key, hit.id); }
+  }
+  const columns = dates.map((c): ColumnService => {
+    const id = pick.get(c.key);
+    if (id) return { key: c.key, date: c.date, serviceId: id, create: null };
+    const sunday = weekdayOf(c.date) === 0;
+    const time = c.time ?? defaults.sundayTime.slice(0, 5);
+    const title = c.title ?? (sunday ? (time === defaults.sundayTime.slice(0, 5) ? defaults.sundayTitle : `Sunday ${time} Service`) : `${WEEKDAYS[weekdayOf(c.date)]} service`);
+    return { key: c.key, date: c.date, serviceId: null, create: { title, time, timeGuessed: !c.time && !sunday, allIn: c.allIn } };
+  });
+  const from = dates.length ? dates.map((d) => d.date).sort()[0].slice(0, 7) : "";
+  const extras = services.filter((s) => !used.has(s.id) && s.service_date.startsWith(from) && dates.every((d) => d.date.slice(0, 7) === from));
+  return { columns, extras };
 }

@@ -1,5 +1,6 @@
 // Route map — PRD Appendix A, exactly.
-import { Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes } from "react-router-dom";
+import { FEATURES } from "./lib/features";
 import Layout from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -38,12 +39,12 @@ export default function App() {
         }
       >
         <Route path="/" element={<Dashboard />} />
-        <Route path="/availability" element={<Availability />} />
+        <Route path="/availability" element={FEATURES.availability ? <Availability /> : <Navigate to="/" replace />} />
         <Route path="/services/:id" element={<ServiceDetail />} />
         <Route path="/schedule" element={<Schedule />} />
-        <Route path="/swaps" element={<Swaps />} />
+        <Route path="/swaps" element={FEATURES.swaps ? <Swaps /> : <Navigate to="/" replace />} />
         <Route path="/profile/preferences" element={<Preferences />} />
-        <Route path="/stats" element={<Stats />} />
+        <Route path="/stats" element={FEATURES.myStats ? <Stats /> : <Navigate to="/" replace />} />
         <Route
           path="/team-lead"
           element={

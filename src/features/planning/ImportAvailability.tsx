@@ -1,13 +1,15 @@
 // WO-3 import: upload the MS Forms export, check the dates and names, then
-// apply everything in one step (atomic RPC). Names you confirm are remembered,
-// so next month they match automatically.
+// apply. The form decides the month's services: each date column is matched to
+// an existing service or created (Sundays and other events), and services the
+// form doesn't mention can be removed if nothing's planned for them. Names you
+// confirm are remembered, so next month they match automatically.
 import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle2, FileUp, UserPlus } from "lucide-react";
+import { AlertTriangle, CalendarPlus, CheckCircle2, FileUp, UserPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, Spinner } from "@/components/ui";
-import { formatDate, formatTime } from "@/lib/format";
-import { interpretForm, matchName, readCsv, readXlsx, type InterpretedForm } from "./formImport";
+import { formatDate, formatTime, monthRange } from "@/lib/format";
+import { interpretForm, matchColumnsToServices, matchName, readCsv, readXlsx, type InterpretedForm } from "./formImport";
 import { useInvalidatePlanner, usePlannerBase } from "./data";
 
 type Decision = { kind: "person"; personId: string } | { kind: "new"; name: string } | { kind: "skip" } | { kind: "undecided" };
@@ -21,23 +23,46 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
   const [decisions, setDecisions] = useState<Record<string, Decision>>({});
   const [restore, setRestore] = useState<Record<string, boolean>>({});
   const [allIn, setAllIn] = useState<Record<string, boolean>>({});
-  const [result, setResult] = useState<null | { rows: number; answers: number; new_people: number; aliases: number; skipped: number }>(null);
+  const [result, setResult] = useState<null | { rows: number; answers: number; new_people: number; aliases: number; skipped: number; created: number; archived: number }>(null);
+  const [edits, setEdits] = useState<Record<string, { title?: string; time?: string }>>({});
+  const [removeExtra, setRemoveExtra] = useState<Record<string, boolean>>({});
 
-  const range = form ? { from: form.dates[0].date, to: form.dates[form.dates.length - 1].date } : null;
+  // the whole month(s) the form covers, so services it doesn't mention show up too
+  const range = form
+    ? (() => {
+        const sorted = form.dates.map((d) => d.date).sort();
+        const a = monthRange(sorted[0].slice(0, 7)).from;
+        const b = monthRange(sorted[sorted.length - 1].slice(0, 7)).to;
+        return { from: a, to: b };
+      })()
+    : null;
   const servicesQ = useQuery({
     queryKey: ["import-services", range?.from, range?.to],
     enabled: !!range,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("services")
-        .select("id, title, service_date, start_time, is_all_in")
-        .is("archived_at", null)
-        .neq("status", "cancelled")
-        .gte("service_date", range!.from)
-        .lte("service_date", range!.to)
-        .order("start_time");
-      if (error) throw new Error(error.message);
-      return data;
+      const [svc, tpl] = await Promise.all([
+        supabase
+          .from("services")
+          .select("id, title, service_date, start_time, is_all_in")
+          .is("archived_at", null)
+          .neq("status", "cancelled")
+          .gte("service_date", range!.from)
+          .lte("service_date", range!.to)
+          .order("start_time"),
+        supabase.from("service_templates").select("name, default_start_time").eq("is_active", true).order("name").limit(1),
+      ]);
+      if (svc.error) throw new Error(svc.error.message);
+      const ids = (svc.data ?? []).map((s) => s.id);
+      // which services already have something on them (those are never removed)
+      const [slots, songs] = ids.length
+        ? await Promise.all([
+            supabase.from("rota_plan_slots").select("service_id").in("service_id", ids).not("person_id", "is", null),
+            supabase.from("service_songs").select("service_id").in("service_id", ids),
+          ])
+        : [{ data: [] }, { data: [] }];
+      const busy = new Set([...(slots.data ?? []), ...(songs.data ?? [])].map((r) => r.service_id));
+      const t = tpl.data?.[0];
+      return { services: svc.data ?? [], busy, defaults: { sundayTitle: t?.name ?? "Sunday Service", sundayTime: t?.default_start_time ?? "11:15:00" } };
     },
   });
 
@@ -59,7 +84,9 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
       }
       setDecisions(d);
       setRestore(r);
-      setAllIn(Object.fromEntries(parsed.dates.map((x) => [x.date, x.allIn])));
+      setAllIn(Object.fromEntries(parsed.dates.map((x) => [x.key, x.allIn])));
+      setEdits({});
+      setRemoveExtra({});
       setFileName(f.name.slice(0, 200));
       setForm(parsed);
     } catch (e) {
@@ -67,20 +94,42 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
     }
   }
 
-  const servicesByDate = useMemo(() => {
-    const m = new Map<string, { id: string; title: string; start_time: string | null }[]>();
-    for (const s of servicesQ.data ?? []) m.set(s.service_date, [...(m.get(s.service_date) ?? []), s]);
-    return m;
-  }, [servicesQ.data]);
+  const match = useMemo(
+    () => (form && servicesQ.data ? matchColumnsToServices(form.dates, servicesQ.data.services, servicesQ.data.defaults) : null),
+    [form, servicesQ.data]
+  );
+  const serviceById = useMemo(() => new Map((servicesQ.data?.services ?? []).map((s) => [s.id, s])), [servicesQ.data]);
+  const creates = (match?.columns ?? []).filter((c) => c.create).map((c) => ({
+    key: c.key,
+    date: c.date,
+    title: (edits[c.key]?.title ?? c.create!.title).trim(),
+    start_time: edits[c.key]?.time ?? c.create!.time,
+    is_all_in: !!allIn[c.key],
+    timeGuessed: c.create!.timeGuessed && !edits[c.key]?.time,
+  }));
+  const removable = (match?.extras ?? []).filter((s) => !servicesQ.data?.busy.has(s.id));
+  const toRemove = removable.filter((s) => removeExtra[s.id] ?? true);
 
   const apply = useMutation({
     mutationFn: async () => {
+      // 1. make the month's services match the form
+      const { data: prep, error: prepErr } = await supabase.rpc("prepare_form_services", {
+        p: { create: creates.map(({ timeGuessed: _g, ...c }) => c), archive_ids: toRemove.map((s) => s.id) },
+      });
+      if (prepErr) throw new Error(prepErr.message);
+      const prepared = prep as unknown as { services: { key: string; id: string }[]; archived: number };
+      const serviceFor = new Map<string, string>();
+      for (const c of match!.columns) if (c.serviceId) serviceFor.set(c.key, c.serviceId);
+      for (const c of prepared.services) serviceFor.set(c.key, c.id);
+
+      // 2. the answers
       const entries = form!.entries.map((e) => {
         const d = decisions[e.key];
         const availability = d.kind === "person" || d.kind === "new"
           ? form!.dates.flatMap((col) => {
-              const a = e.answers[col.date];
-              return a ? (servicesByDate.get(col.date) ?? []).map((s) => ({ service_id: s.id, response: a })) : [];
+              const a = e.answers[col.key];
+              const sid = serviceFor.get(col.key);
+              return a && sid ? [{ service_id: sid, response: a }] : [];
             })
           : [];
         return {
@@ -94,7 +143,7 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
           availability,
         };
       });
-      const allInIds = form!.dates.filter((d) => allIn[d.date]).flatMap((d) => (servicesByDate.get(d.date) ?? []).map((s) => s.id));
+      const allInIds = form!.dates.filter((d) => allIn[d.key] && serviceFor.get(d.key)).map((d) => serviceFor.get(d.key)!);
       const { data, error } = await supabase.rpc("apply_availability_import", {
         p: { file_name: fileName, month: `${form!.month}-01`, all_in_service_ids: allInIds, entries },
       });
@@ -104,7 +153,7 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
         const { error: e2 } = await supabase.from("team_people").update({ is_active: true }).in("id", toRestore);
         if (e2) throw new Error(e2.message);
       }
-      return data as { rows: number; answers: number; new_people: number; aliases: number; skipped: number };
+      return { ...(data as { rows: number; answers: number; new_people: number; aliases: number; skipped: number }), created: creates.length, archived: prepared.archived };
     },
     onSuccess: (r) => { setResult(r); invalidate(); },
   });
@@ -112,13 +161,15 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
   if (base.isLoading) return <Spinner />;
   const people = base.data!.people;
   const undecided = form ? form.entries.filter((e) => decisions[e.key]?.kind === "undecided").length : 0;
-  const missingDates = form ? form.dates.filter((d) => !servicesByDate.get(d.date)?.length) : [];
+  const badCreate = creates.find((c) => !c.title || !/^\d{2}:\d{2}$/.test(c.start_time));
 
   if (result) {
     return (
       <Card>
         <h3 className="flex items-center gap-2 font-semibold text-positive"><CheckCircle2 size={18} /> Imported</h3>
         <p className="text-sm text-soft mt-2">
+          {result.created ? `${result.created} service${result.created === 1 ? "" : "s"} added. ` : ""}
+          {result.archived ? `${result.archived} removed. ` : ""}
           {result.answers} answers saved from {result.rows - result.skipped} people
           {result.new_people ? `, ${result.new_people} added to the team list` : ""}
           {result.skipped ? `, ${result.skipped} skipped` : ""}. {result.aliases ? `${result.aliases} name${result.aliases === 1 ? "" : "s"} remembered for next time.` : ""}
@@ -135,7 +186,9 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
     <div className="space-y-4">
       <Card>
         <h3 className="font-semibold">Import the availability form</h3>
-        <p className="text-sm text-soft mt-1">Download the responses from Microsoft Forms (Open in Excel) and choose the file here. Nothing is saved until you press Import.</p>
+        <p className="text-sm text-soft mt-1">
+          Download the responses from Microsoft Forms (Open in Excel) and choose the file here. The form sets up the month: each date in it becomes a service or event. Nothing is saved until you press Import.
+        </p>
         <label className="btn-secondary mt-3 cursor-pointer">
           <FileUp size={16} /> Choose .xlsx or .csv
           <input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="sr-only" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
@@ -147,27 +200,70 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
       {form && (
         <>
           <Card>
-            <h3 className="font-semibold text-sm">Dates in the form</h3>
+            <h3 className="font-semibold text-sm">The month, from the form</h3>
             <ul className="mt-2 divide-y divide-line">
-              {form.dates.map((d) => {
-                const svcs = servicesByDate.get(d.date) ?? [];
-                const yes = form.entries.filter((e) => e.answers[d.date] === "yes").length;
+              {[...(match?.columns ?? form.dates.map((d) => ({ key: d.key, date: d.date, serviceId: null, create: null })))].sort((a, b) => a.date.localeCompare(b.date)).map((c) => {
+                const svc = c.serviceId ? serviceById.get(c.serviceId) : null;
+                const cr = creates.find((x) => x.key === c.key);
+                const yes = form.entries.filter((e) => e.answers[c.key] === "yes").length;
                 return (
-                  <li key={d.date} className="py-2 flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-semibold w-36">{formatDate(d.date)}</span>
-                    <span className="text-soft flex-1 min-w-[8rem]">
-                      {servicesQ.isLoading ? "…" : svcs.length ? svcs.map((s) => formatTime(s.start_time)).join(" + ") : <span className="text-warning">No service on this date</span>}
-                      {" · "}{yes} yes
-                    </span>
-                    <label className="flex items-center gap-1.5 text-xs">
-                      <input type="checkbox" checked={!!allIn[d.date]} onChange={(e) => setAllIn({ ...allIn, [d.date]: e.target.checked })} /> All-in (no kids church)
-                    </label>
+                  <li key={c.key} className="py-2.5 text-sm">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="font-semibold w-32 shrink-0">{formatDate(c.date)}</span>
+                      <span className="text-soft flex-1 min-w-[10rem]">
+                        {servicesQ.isLoading || !match ? "…" : svc ? `${formatTime(svc.start_time)} · ${svc.title}` : <span className="text-accent-strong font-semibold inline-flex items-center gap-1"><CalendarPlus size={14} /> New</span>}
+                        {" · "}{yes} yes
+                      </span>
+                      <label className="flex items-center gap-1.5 text-xs">
+                        <input type="checkbox" checked={!!allIn[c.key]} onChange={(e) => setAllIn({ ...allIn, [c.key]: e.target.checked })} /> All-in (no kids church)
+                      </label>
+                    </div>
+                    {cr && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2 sm:ml-[8.75rem]">
+                        <input
+                          className="input !min-h-[36px] !py-1 text-sm flex-1 min-w-[12rem]"
+                          aria-label={`Name for ${formatDate(c.date)}`}
+                          value={cr.title}
+                          maxLength={120}
+                          onChange={(e) => setEdits({ ...edits, [c.key]: { ...edits[c.key], title: e.target.value } })}
+                        />
+                        <input
+                          type="time"
+                          className={`input !min-h-[36px] !py-1 text-sm !w-36 ${cr.timeGuessed ? "!border-warning" : ""}`}
+                          aria-label={`Start time for ${formatDate(c.date)}`}
+                          value={cr.start_time}
+                          onChange={(e) => setEdits({ ...edits, [c.key]: { ...edits[c.key], time: e.target.value } })}
+                        />
+                        {cr.timeGuessed && <span className="text-xs text-warning">The form doesn't say a time — check it</span>}
+                      </div>
+                    )}
                   </li>
                 );
               })}
             </ul>
-            {missingDates.length > 0 && (
-              <p className="text-warning text-xs mt-2 flex gap-1.5"><AlertTriangle size={14} className="shrink-0 mt-0.5" /> Answers for dates without a service are kept in the import record but can't be planned. Create those services first if you need them.</p>
+            {(match?.extras.length ?? 0) > 0 && (
+              <div className="mt-3 pt-3 border-t border-line">
+                <h4 className="text-sm font-semibold">Not in the form</h4>
+                <p className="text-xs text-soft">These services exist for this month but the form doesn't ask about them.</p>
+                <ul className="mt-1.5 space-y-1">
+                  {match!.extras.map((s) => {
+                    const busy = servicesQ.data?.busy.has(s.id);
+                    return (
+                      <li key={s.id} className="flex items-center gap-2 text-sm min-h-[36px]">
+                        <input
+                          type="checkbox"
+                          disabled={busy}
+                          checked={!busy && (removeExtra[s.id] ?? true)}
+                          onChange={(e) => setRemoveExtra({ ...removeExtra, [s.id]: e.target.checked })}
+                          aria-label={`Remove ${formatDate(s.service_date)}`}
+                        />
+                        <span className={busy ? "text-soft" : ""}>{formatDate(s.service_date)} · {formatTime(s.start_time)} · {s.title}</span>
+                        <span className="text-xs text-faint">{busy ? "kept — something is already planned" : "remove"}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </Card>
 
@@ -251,10 +347,18 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
           )}
 
           <div className="flex flex-wrap items-center gap-3">
-            <button className="btn-primary" disabled={undecided > 0 || apply.isPending || servicesQ.isLoading} onClick={() => apply.mutate()}>
+            <button className="btn-primary" disabled={undecided > 0 || apply.isPending || servicesQ.isLoading || !match || !!badCreate} onClick={() => apply.mutate()}>
               {apply.isPending ? "Importing…" : `Import ${form.entries.filter((e) => decisions[e.key]?.kind !== "skip").length} responses`}
             </button>
             {undecided > 0 && <span className="text-xs text-warning">Choose who each highlighted name is, add them, or skip them.</span>}
+            {badCreate && <span className="text-xs text-warning">Give every new service a name and a time.</span>}
+            {(creates.length > 0 || toRemove.length > 0) && !badCreate && (
+              <span className="text-xs text-soft">
+                {creates.length ? `${creates.length} service${creates.length === 1 ? "" : "s"} will be added` : ""}
+                {creates.length && toRemove.length ? ", " : ""}
+                {toRemove.length ? `${toRemove.length} removed` : ""}.
+              </span>
+            )}
             {apply.error && <span className="text-danger text-sm" role="alert">{(apply.error as Error).message}</span>}
           </div>
         </>
