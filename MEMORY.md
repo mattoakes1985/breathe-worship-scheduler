@@ -224,7 +224,7 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 
 ## [2026-10-10] Never use toISOString() for calendar dates
 - **Decision:** Use `toLocalISODate()` (src/lib/format.ts) or the engine's `isoDate()`. Tests run with TZ=Europe/London.
-- **Why:** toISOString() converts local midnight to UTC, which put every summer service on the Saturday. Upcoming services were moved to Sunday (00015); past ones were left alone.
+- **Why:** toISOString() converts local midnight to UTC, which put every summer service on the Saturday. All template-generated services are now on Sundays (00015 upcoming, 00020 past, 2026-10-11). Non-Sunday services from the imported history are genuine events (weddings, men's breakfasts, midweek gatherings, Christmas Day) and must not be "corrected".
 - **Made by:** Claude, approved by Matt
 - **Status:** Confirmed, live
 

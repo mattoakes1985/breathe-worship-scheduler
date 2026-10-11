@@ -120,3 +120,6 @@ Commits 2b2d69e (BST date fix + duplicate services), 71c23f0 (schema, engine, fo
 ### [2026-10-11 07:30] Claude — resolution + new rule
 Matt confirmed "any one of Acoustic/Electric/Keys" and that the Joy/Caleb Oakes accounts are real (links kept). New rule from Matt implemented: a leader who plays acoustic does both at once (`team_people.leads_on_role_id`, migration 00019, default for Dave Asplin, Jo Atkinson, Matt Oakes; editable per person). Planner, manual Lead picks and warnings updated; 3 new tests (74 total); browser rerun clean. Still open: whether to move past summer services (before 2026-10-10) off Saturdays so August-style imports line up.
 
+### [2026-10-11 15:05] Claude — resolution
+Matt asked for past services to be on Sundays. 00020 (applied after a rolled-back rehearsal) moved the 26 remaining template services (2026-07-04..10-03) from Saturday to Sunday; no clashes; the two with assignments/songs kept them. The 35 non-template, non-Sunday services were left as they are: they are real events from history (weddings, men's breakfasts, conferences, midweek gatherings, Christmas Day). August 2026 services now line up with the August form.
+
