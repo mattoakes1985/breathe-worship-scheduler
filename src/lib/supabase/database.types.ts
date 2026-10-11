@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00022 (contact privacy, service dates, planner, month grid).
+// after migrations 00014-00024 (contact privacy, service dates, planner, month grid, pairings).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -1979,6 +1979,7 @@ export type Database = {
       team_people: {
         Row: {
           always_role_id: string | null
+          combinable_role_ids: string[]
           created_at: string
           display_name: string
           full_name: string | null
@@ -1989,12 +1990,14 @@ export type Database = {
           max_per_month: number | null
           merged_into_id: string | null
           profile_id: string | null
+          role_links: Json
           team_id: string
           updated_at: string
           updated_by: string | null
         }
         Insert: {
           always_role_id?: string | null
+          combinable_role_ids?: string[]
           created_at?: string
           display_name: string
           full_name?: string | null
@@ -2005,12 +2008,14 @@ export type Database = {
           max_per_month?: number | null
           merged_into_id?: string | null
           profile_id?: string | null
+          role_links?: Json
           team_id: string
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
           always_role_id?: string | null
+          combinable_role_ids?: string[]
           created_at?: string
           display_name?: string
           full_name?: string | null
@@ -2021,6 +2026,7 @@ export type Database = {
           max_per_month?: number | null
           merged_into_id?: string | null
           profile_id?: string | null
+          role_links?: Json
           team_id?: string
           updated_at?: string
           updated_by?: string | null

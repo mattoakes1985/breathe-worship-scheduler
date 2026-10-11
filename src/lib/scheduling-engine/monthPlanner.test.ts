@@ -299,7 +299,7 @@ describe("leading from an instrument", () => {
     }));
     expect(who(r, s.id, LEAD)).toBe("dave");
     expect(who(r, s.id, AC)).toBe("dave");
-    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/while leading/);
+    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/Lead with Acoustic/);
     expect(r.load.dave).toBe(1);
     expect(checkPlan(input({ services: [s], people: [person("dave", { acoustic: 1, lead: 2 }, { leadsOnRoleId: AC })], availability: all(["dave"], [s]), rules: rulesWithLead }), r.slots.filter((x) => x.personId === "dave"))
       .filter((w) => w.level === "block")).toEqual([]);
@@ -317,7 +317,7 @@ describe("leading from an instrument", () => {
     expect(who(r, s.id, KEYS)).toBe("fran");
   });
 
-  it("doesn't override an acoustic slot that's locked to someone else", () => {
+  it("won't lead if their acoustic slot is locked to someone else, and says why", () => {
     const s = svc(sundays[0], [LEAD, AC]);
     const r = planMonth(input({
       services: [s],
@@ -326,8 +326,9 @@ describe("leading from an instrument", () => {
       locks: [{ serviceId: s.id, roleId: AC, slotIndex: 0, personId: "lou" }],
       rules: rulesWithLead,
     }));
-    expect(who(r, s.id, LEAD)).toBe("dave");
+    expect(who(r, s.id, LEAD)).toBeNull();
     expect(who(r, s.id, AC)).toBe("lou");
+    expect(r.coreGaps.find((g) => g.label === "Lead")!.closest[0]).toMatchObject({ name: "dave", why: "their instrument is taken that day" });
   });
 });
 
@@ -342,7 +343,7 @@ describe("always plays an instrument", () => {
     }));
     expect(who(r, s.id, VOX)).toBe("dave");
     expect(who(r, s.id, AC)).toBe("dave");
-    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/Always plays/);
+    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/Vox with Acoustic/);
   });
 
   it("isn't put on vox if someone else already has acoustic", () => {
@@ -354,6 +355,53 @@ describe("always plays an instrument", () => {
       locks: [{ serviceId: s.id, roleId: AC, slotIndex: 0, personId: "lou" }],
     }));
     expect(who(r, s.id, VOX)).toBe("kit");
+  });
+});
+
+describe("pairings", () => {
+  const BV = "bv";
+  it("only with: vox only while on acoustic, but acoustic alone is fine", () => {
+    const s = svc(sundays[0], [AC, VOX]);
+    const peter = person("peter", { acoustic: 1, vox: 2 }, { links: [{ role: VOX, with: AC, mode: "requires" }] });
+    const r1 = planMonth(input({ services: [s], people: [peter, person("lou", { acoustic: 1 })], availability: all(["peter", "lou"], [s]),
+      locks: [{ serviceId: s.id, roleId: AC, slotIndex: 0, personId: "lou" }] }));
+    expect(who(r1, s.id, VOX)).toBeNull();
+    const r2 = planMonth(input({ services: [s], people: [peter], availability: all(["peter"], [s]) }));
+    expect(who(r2, s.id, AC)).toBe("peter");
+  });
+
+  it("usually with: on BV they take keys too if keys is free", () => {
+    const s = svc(sundays[0], [BV, KEYS]);
+    const tim = person("tim", { keys: 2, bv: 1 }, { links: [{ role: BV, with: KEYS, mode: "also" }] });
+    const r = planMonth(input({ services: [s], people: [tim], availability: all(["tim"], [s]), locks: [{ serviceId: s.id, roleId: BV, slotIndex: 0, personId: "tim" }] }));
+    expect(who(r, s.id, KEYS)).toBe("tim");
+  });
+
+  it("usually with: if there's another keys player, they just do BV", () => {
+    const s = svc(sundays[0], [BV, KEYS]);
+    const tim = person("tim", { keys: 2, bv: 1 }, { links: [{ role: BV, with: KEYS, mode: "also" }] });
+    const r = planMonth(input({ services: [s], people: [tim, person("fran", { keys: 1 })], availability: all(["tim", "fran"], [s]),
+      locks: [{ serviceId: s.id, roleId: KEYS, slotIndex: 0, personId: "fran" }] }));
+    expect(who(r, s.id, BV)).toBe("tim");
+    expect(who(r, s.id, KEYS)).toBe("fran");
+  });
+
+  it("doubles someone up only when no one else is free, and says so", () => {
+    const s = svc(sundays[0], [KEYS, BV]);
+    const tim = person("tim", { keys: 1, bv: 2 }, { links: [{ role: KEYS, with: BV, mode: "can" }] });
+    const alone = planMonth(input({ services: [s], people: [tim], availability: all(["tim"], [s]) }));
+    expect(who(alone, s.id, KEYS)).toBe("tim");
+    expect(who(alone, s.id, BV)).toBe("tim");
+    expect(alone.slots.find((x) => x.roleId === BV)!.relaxed.join(" ")).toMatch(/can do both/);
+    const withSinger = planMonth(input({ services: [s], people: [tim, person("kit", { bv: 1 })], availability: all(["tim", "kit"], [s]) }));
+    expect(who(withSinger, s.id, BV)).toBe("kit");
+  });
+
+  it("never doubles roles that aren't paired (keys + lead)", () => {
+    const s = svc(sundays[0], [KEYS, LEAD]);
+    const tim = person("tim", { keys: 1, lead: 2, bv: 3 }, { links: [{ role: BV, with: KEYS, mode: "also" }] });
+    const r = planMonth(input({ services: [s], people: [tim], availability: all(["tim"], [s]) }));
+    expect(r.slots.filter((x) => x.personId === "tim")).toHaveLength(1);
   });
 });
 

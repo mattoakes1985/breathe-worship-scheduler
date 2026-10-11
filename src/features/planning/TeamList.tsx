@@ -8,7 +8,8 @@ import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, ErrorState, Field, Modal, Spinner } from "@/components/ui";
 import { formatDate, todayISO } from "@/lib/format";
 import { suggestHouseholds } from "@/lib/scheduling-engine/monthPlanner";
-import { shortRole, useInvalidatePlanner, usePlannerBase, type Person } from "./data";
+import { parseLinks, shortRole, useInvalidatePlanner, usePlannerBase, type Person } from "./data";
+import type { RoleLink } from "@/lib/scheduling-engine/monthPlanner";
 
 const STALE_DAYS = 365;
 
@@ -124,8 +125,9 @@ export default function TeamList() {
                   {p.profile_id && <span title="Has an app account"><Link2 size={14} className="text-info" aria-label="Has an app account" /></span>}
                   {p.household_id && <Badge tone="info">{hhName.get(p.household_id)}</Badge>}
                   {p.max_per_month && <Badge>max {p.max_per_month}/month</Badge>}
-                  {p.always_role_id ? <Badge tone="accent">Always on {shortRole(roleName.get(p.always_role_id) ?? "")}</Badge>
-                    : p.leads_on_role_id && <Badge tone="accent">Leads on {shortRole(roleName.get(p.leads_on_role_id) ?? "")}</Badge>}
+                  {parseLinks(p.role_links).map((l, i) => (
+                    <Badge key={i} tone="accent">{shortRole(roleName.get(l.role) ?? "?")} {l.mode === "requires" ? "only with" : l.mode === "also" ? "+" : "or"} {shortRole(roleName.get(l.with) ?? "?")}</Badge>
+                  ))}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {Object.entries(p.roles).sort((a, b) => a[1] - b[1]).map(([rid, rank]) => (
@@ -166,9 +168,7 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
   const [fullName, setFullName] = useState(person?.full_name ?? "");
   const [max, setMax] = useState<number | null>(person?.max_per_month ?? null);
   const [household, setHousehold] = useState<string>(person?.household_id ?? "");
-  const [leadsOn, setLeadsOn] = useState<string>(person?.leads_on_role_id ?? "");
-  const [always, setAlways] = useState<string>(person?.always_role_id ?? "");
-  const leadRole = base.roles.find((r) => r.name === "Worship Leader");
+  const [links, setLinks] = useState<RoleLink[]>(parseLinks(person?.role_links));
   const [ranks, setRanks] = useState<Record<string, number>>(person?.roles ?? {});
   const [newAlias, setNewAlias] = useState("");
   const [mergeInto, setMergeInto] = useState("");
@@ -178,9 +178,18 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
     mutationFn: async () => {
       const display = name.trim();
       if (!display) throw new Error("Give them a name.");
-      const leadsOnValid = leadRole && leadRole.id in ranks && leadsOn && leadsOn in ranks ? leadsOn : null;
-      const alwaysValid = always && always in ranks && Object.keys(ranks).length > 1 ? always : null;
-      const row = { display_name: display.slice(0, 80), full_name: fullName.trim() || null, max_per_month: max, household_id: household || null, leads_on_role_id: leadsOnValid, always_role_id: alwaysValid };
+      // keep only pairings between two different instruments they still play
+      const seen = new Set<string>();
+      const cleanLinks = links.filter((l) => {
+        const k = `${l.role}|${l.with}`;
+        if (l.role === l.with || !(l.role in ranks) || !(l.with in ranks) || seen.has(k)) return false;
+        seen.add(k);
+        return true;
+      });
+      const row = {
+        display_name: display.slice(0, 80), full_name: fullName.trim() || null, max_per_month: max, household_id: household || null,
+        role_links: cleanLinks as never, leads_on_role_id: null, always_role_id: null,
+      };
       let id = person?.id;
       if (id) {
         const { error } = await supabase.from("team_people").update(row).eq("id", id);
@@ -272,20 +281,41 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
         </div>
 
         {Object.keys(ranks).length > 1 && (
-          <Field label="Always plays" hint="Whatever else they do (lead, vox…), they're on this instrument too. They won't be put in another role if it's already taken.">
-            <select className="input" value={always} onChange={(e) => setAlways(e.target.value)}>
-              <option value="">Nothing fixed</option>
-              {base.roles.filter((r) => r.id in ranks).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </Field>
-        )}
-        {leadRole && leadRole.id in ranks && !always && (
-          <Field label="When leading, also plays" hint="They fill that slot too whenever they lead (e.g. leading from acoustic).">
-            <select className="input" value={leadsOn} onChange={(e) => setLeadsOn(e.target.value)}>
-              <option value="">Nothing — just leads</option>
-              {base.roles.filter((r) => r.id !== leadRole.id && r.id in ranks).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
-          </Field>
+          <div>
+            <span className="block text-sm font-semibold mb-1">Doing two things at once</span>
+            <p className="text-xs text-faint mb-2">
+              “only with”: never one without the other (Peter: Vox only with Acoustic). “usually with”: takes the second too if it's free (Tim: BV usually with Keys).
+              “can also do”: may double up when no one else is free.
+            </p>
+            <ul className="space-y-1.5">
+              {links.map((l, i) => (
+                <li key={i} className="flex items-center gap-1.5">
+                  <select className="input !min-h-[36px] text-sm flex-1 min-w-0" aria-label="Role" value={l.role} onChange={(e) => setLinks(links.map((x, k) => (k === i ? { ...x, role: e.target.value } : x)))}>
+                    {base.roles.filter((r) => r.id in ranks).map((r) => <option key={r.id} value={r.id}>{shortRole(r.name)}</option>)}
+                  </select>
+                  <select className="input !min-h-[36px] text-sm !w-32" aria-label="How" value={l.mode} onChange={(e) => setLinks(links.map((x, k) => (k === i ? { ...x, mode: e.target.value as RoleLink["mode"] } : x)))}>
+                    <option value="requires">only with</option>
+                    <option value="also">usually with</option>
+                    <option value="can">can also do</option>
+                  </select>
+                  <select className="input !min-h-[36px] text-sm flex-1 min-w-0" aria-label="Paired role" value={l.with} onChange={(e) => setLinks(links.map((x, k) => (k === i ? { ...x, with: e.target.value } : x)))}>
+                    {base.roles.filter((r) => r.id in ranks).map((r) => <option key={r.id} value={r.id}>{shortRole(r.name)}</option>)}
+                  </select>
+                  <button className="btn-ghost !min-h-[32px] !px-1.5 text-faint hover:text-danger" aria-label="Remove pairing" onClick={() => setLinks(links.filter((_, k) => k !== i))}>×</button>
+                </li>
+              ))}
+            </ul>
+            <button
+              className="btn-ghost !min-h-[36px] mt-1 text-sm"
+              disabled={links.length >= 10}
+              onClick={() => {
+                const ids = base.roles.filter((r) => r.id in ranks).map((r) => r.id);
+                setLinks([...links, { role: ids[1] ?? ids[0], mode: "requires", with: ids[0] }]);
+              }}
+            >
+              + Add a pairing
+            </button>
+          </div>
         )}
 
         <div className="grid grid-cols-2 gap-3">

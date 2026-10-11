@@ -10,6 +10,7 @@ import { checkPlan, planMonth, type SlotWarning } from "@/lib/scheduling-engine/
 import {
   buildPlanInput,
   mergedAvailability,
+  parseLinks,
   rulesToPlanRules,
   savePlan,
   savedSlots,
@@ -236,23 +237,19 @@ function ServiceCard({
         relaxed: manual ? [] : existing?.relaxed ?? [],
       };
       const rowsToSave = [row];
-      // Picking someone who always plays an instrument (or leads from one) fills
-      // that slot too, unless it's locked to someone else.
+      // Picking someone whose role has an "only with" / "usually with" pairing
+      // fills the paired slot too, unless it's locked to someone else.
       const picked = manual && args.personId ? base.people.find((p) => p.id === args.personId) : undefined;
-      const companion = picked
-        ? picked.always_role_id && picked.always_role_id !== args.roleId
-          ? picked.always_role_id
-          : roleName.get(args.roleId) === "Worship Leader" ? picked.leads_on_role_id : null
-        : null;
-      if (picked && companion) {
-        const inst = slotRows.find((s) => s.role_id === companion && s.slot_index === 0);
-        const hasSlot = service.requirements.some((q) => q.role_id === companion && q.quantity_required > 0);
-        if (hasSlot && !(inst?.locked && inst.person_id && inst.person_id !== picked.id)) {
-          rowsToSave.push({
-            service_id: service.id, role_id: companion, slot_index: 0, person_id: picked.id, locked: true, source: "manual",
-            reasons: [picked.always_role_id === companion ? `Always plays ${roleName.get(companion) ?? "their instrument"}` : `Plays ${roleName.get(companion) ?? "their instrument"} while leading`], relaxed: [],
-          });
-        }
+      for (const l of picked ? parseLinks(picked.role_links) : []) {
+        if (l.role !== args.roleId || l.mode === "can") continue;
+        const inst = slotRows.find((s) => s.role_id === l.with && s.slot_index === 0);
+        const hasSlot = service.requirements.some((q) => q.role_id === l.with && q.quantity_required > 0);
+        if (!hasSlot || (inst?.person_id && inst.person_id !== picked!.id && (inst.locked || l.mode === "also"))) continue;
+        rowsToSave.push({
+          service_id: service.id, role_id: l.with, slot_index: 0, person_id: picked!.id, locked: true, source: "manual",
+          reasons: [l.mode === "requires" ? `Only does ${roleName.get(l.role) ?? "this"} with ${roleName.get(l.with) ?? "that"}` : `Usually plays ${roleName.get(l.with) ?? "that"} with ${roleName.get(l.role) ?? "this"}`],
+          relaxed: [],
+        });
       }
       const { error } = await supabase.from("rota_plan_slots").upsert(rowsToSave, { onConflict: "service_id,role_id,slot_index" });
       if (error) throw new Error(error.message);

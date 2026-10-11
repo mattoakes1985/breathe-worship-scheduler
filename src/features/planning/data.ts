@@ -9,6 +9,7 @@ import {
   type PlanLock,
   type PlannedSlot,
   type PlanRules,
+  type RoleLink,
   type SoftRuleKind,
 } from "@/lib/scheduling-engine/monthPlanner";
 
@@ -196,6 +197,14 @@ export function rulesToPlanRules(rules: Rule[]): PlanRules {
   };
 }
 
+/** Validated role pairings from team_people.role_links (jsonb). */
+export function parseLinks(raw: unknown): RoleLink[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((l): l is RoleLink => !!l && typeof l === "object" && typeof (l as RoleLink).role === "string" && typeof (l as RoleLink).with === "string" && ["requires", "also", "can"].includes((l as RoleLink).mode))
+    .slice(0, 20);
+}
+
 /** Roles that count as leading: the core group labelled "Lead" if there is one. */
 function leadRoleIdsFrom(rules: Rule[]): string[] {
   const core = rules.find((r) => r.kind === "core_roles");
@@ -229,7 +238,7 @@ export function buildPlanInput(month: string, base: Base, data: MonthData, opts:
       }
       return { id: s.id, date: s.service_date, startTime: (s.start_time ?? "").slice(0, 5), isAllIn: s.is_all_in, linkedServiceId: s.linked_service_id, slots };
     }),
-    people: active.map((p) => ({ id: p.id, name: p.display_name, roles: p.roles, maxPerMonth: p.max_per_month, householdId: p.household_id, leadsOnRoleId: p.leads_on_role_id, alwaysRoleId: p.always_role_id })),
+    people: active.map((p) => ({ id: p.id, name: p.display_name, roles: p.roles, maxPerMonth: p.max_per_month, householdId: p.household_id, links: parseLinks(p.role_links) })),
     households: base.households.map((h) => ({ id: h.id, preference: h.preference as "together" | "apart" | "none" })),
     availability: mergedAvailability(base, data),
     history,

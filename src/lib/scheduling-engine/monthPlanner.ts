@@ -12,7 +12,20 @@
 // loudly with the people closest to filling it.
 
 export type PlanResponse = "yes" | "no" | "maybe";
-export type SoftRuleKind = "monthly_cap" | "rest_gap" | "availability" | "households" | "fairness";
+export type SoftRuleKind = "monthly_cap" | "rest_gap" | "availability" | "households" | "fairness" | "doubling";
+
+/** How one person's roles pair up on a service.
+ *  requires ("only with"): on `role` they're always on `with` too, and aren't
+ *    put on `role` if `with` is taken by someone else (Peter: vox only with acoustic).
+ *  also ("usually with"): on `role` they also take `with` if it's free,
+ *    otherwise just `role` (Tim: BV usually with keys).
+ *  can ("can also do"): may hold both; only used when no one else is free. */
+export type LinkMode = "requires" | "also" | "can";
+export interface RoleLink {
+  role: string;
+  with: string;
+  mode: LinkMode;
+}
 
 export interface PlanPerson {
   id: string;
@@ -25,6 +38,21 @@ export interface PlanPerson {
   leadsOnRoleId?: string | null;
   /** An instrument they play whenever they serve, in any role (e.g. Dave: acoustic). */
   alwaysRoleId?: string | null;
+  /** Role pairings (see RoleLink). alwaysRoleId/leadsOnRoleId are shorthands for "requires". */
+  links?: RoleLink[];
+}
+
+/** All pairings for a person, with the shorthands expanded. */
+export function personLinks(p: PlanPerson, leadRoleIds: string[] = []): RoleLink[] {
+  const out: RoleLink[] = [...(p.links ?? [])].filter((l) => l.role !== l.with);
+  if (p.alwaysRoleId) for (const r of Object.keys(p.roles)) if (r !== p.alwaysRoleId) out.push({ role: r, with: p.alwaysRoleId, mode: "requires" });
+  if (p.leadsOnRoleId) for (const r of leadRoleIds) out.push({ role: r, with: p.leadsOnRoleId, mode: "requires" });
+  return out;
+}
+
+/** May this person hold both roles on one service? */
+export function canHoldTogether(links: RoleLink[], a: string, b: string): boolean {
+  return links.some((l) => (l.role === a && l.with === b) || (l.role === b && l.with === a));
 }
 
 export interface PlanHousehold {
@@ -141,6 +169,9 @@ interface Ctx {
   serviceById: Map<string, PlanService>;
   /** per-service planning state for the day being planned (and earlier days) */
   states: Map<string, SvcState>;
+  /** roles each person holds on each service: `${serviceId}|${personId}` */
+  rolesOn: Map<string, Set<string>>;
+  links: Map<string, RoleLink[]>;
 }
 
 interface SvcState {
@@ -151,7 +182,13 @@ interface SvcState {
 }
 const slotKey = (s: { roleId: string; slotIndex: number }) => `${s.roleId}|${s.slotIndex}`;
 
-function addServe(ctx: Ctx, personId: string, service: PlanService) {
+function addServe(ctx: Ctx, personId: string, service: PlanService, roleId?: string) {
+  if (roleId) {
+    const k = `${service.id}|${personId}`;
+    const held = ctx.rolesOn.get(k) ?? new Set<string>();
+    held.add(roleId);
+    ctx.rolesOn.set(k, held);
+  }
   const set = ctx.onService.get(service.id) ?? new Set<string>();
   if (set.has(personId)) return;
   set.add(personId);
@@ -182,18 +219,21 @@ function exclusion(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string
   const r = ctx.avail.get(`${service.id}|${p.id}`);
   if (r === "no") return "said_no";
   if (r !== "yes" && r !== "maybe") return "no_response";
-  if (ctx.onService.get(service.id)?.has(p.id)) return "on_service";
+  if (ctx.onService.get(service.id)?.has(p.id)) {
+    const held = ctx.rolesOn.get(`${service.id}|${p.id}`) ?? new Set<string>();
+    const links = ctx.links.get(p.id) ?? [];
+    if (held.has(roleId) || held.size === 0 || ![...held].every((h) => canHoldTogether(links, h, roleId))) return "on_service";
+  }
   for (const sid of ctx.personServices.get(p.id) ?? []) {
     const other = ctx.serviceById.get(sid);
     if (other && other.id !== service.id && other.date === service.date && !linked(other, service)) return "same_day";
   }
-  // Someone who always plays an instrument can only take another role if that
-  // instrument's slot on this service is still free (or already theirs).
-  const anchor = p.alwaysRoleId;
-  if (anchor && roleId !== anchor) {
-    const st = ctx.states.get(service.id);
-    const anchorSlots = st ? st.slots.filter((x) => x.roleId === anchor) : [];
-    if (anchorSlots.length && !anchorSlots.some((x) => !st!.filled.has(slotKey(x)) || st!.filled.get(slotKey(x))?.personId === p.id)) return "instrument_taken";
+  // "Only with": they can't take this role if the paired role is taken by someone else.
+  const st = ctx.states.get(service.id);
+  for (const l of ctx.links.get(p.id) ?? []) {
+    if (l.mode !== "requires" || l.role !== roleId) continue;
+    const pairSlots = st ? st.slots.filter((x) => x.roleId === l.with) : [];
+    if (pairSlots.length && !pairSlots.some((x) => !st!.filled.has(slotKey(x)) || st!.filled.get(slotKey(x))?.personId === p.id)) return "instrument_taken";
   }
   return null;
 }
@@ -244,6 +284,8 @@ function score(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): S
     hhNote = "Household prefers to serve apart";
   }
 
+  const heldHere = [...(ctx.rolesOn.get(`${service.id}|${p.id}`) ?? [])];
+  const doubling = heldHere.length > 0;
   const rank = Math.min(Math.max(p.roles[roleId] ?? 1, 1), 10);
   const reasons: string[] = [];
   reasons.push(response === "yes" ? "Said yes" : "Said maybe");
@@ -260,17 +302,26 @@ function score(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): S
       availability: response === "yes" ? 0 : 1,
       households: hhPenalty,
       fairness: load, // fewer serves this month first
+      doubling: doubling ? 1 : 0,
     },
     notes: {
       monthly_cap: cap != null && load >= cap ? `Over their monthly limit (${cap})` : undefined,
       rest_gap: tooClose ? `Also serving ${tooClose} (within ${rules.restGapWeeks} week${rules.restGapWeeks === 1 ? "" : "s"})` : undefined,
       availability: response === "maybe" ? "Only said maybe" : undefined,
       households: hhNote,
+      doubling: doubling ? `Also on ${heldHere.map((r) => ctx.input.roleNames[r] ?? "another role").join(" and ")} (can do both)` : undefined,
     },
     // instrument preference, then whoever served longest ago, then name
     tail: [rank, -Math.min(daysSince, 9999)],
     reasons,
   };
+}
+
+/** Doubling someone up comes after the monthly limit and rest week, before everything else. */
+function effectiveOrder(order: SoftRuleKind[]): SoftRuleKind[] {
+  const base = order.filter((k) => k !== "doubling");
+  const at = Math.max(base.indexOf("monthly_cap"), base.indexOf("rest_gap")) + 1;
+  return [...base.slice(0, at), "doubling", ...base.slice(at)];
 }
 
 function compare(order: SoftRuleKind[], a: Scored, b: Scored): number {
@@ -286,6 +337,7 @@ function compare(order: SoftRuleKind[], a: Scored, b: Scored): number {
 }
 
 const RELAX_LABEL: Record<SoftRuleKind, string> = {
+  doubling: "doubling up",
   monthly_cap: "monthly limit",
   rest_gap: "rest week",
   availability: "maybe",
@@ -294,7 +346,7 @@ const RELAX_LABEL: Record<SoftRuleKind, string> = {
 };
 
 function pick(ctx: Ctx, service: PlanService, roleIds: string[]): { scored: Scored; roleId: string } | null {
-  const order = ctx.input.rules.softOrder;
+  const order = effectiveOrder(ctx.input.rules.softOrder);
   let best: { scored: Scored; roleId: string } | null = null;
   for (const roleId of roleIds) {
     for (const p of ctx.input.people) {
@@ -308,7 +360,7 @@ function pick(ctx: Ctx, service: PlanService, roleIds: string[]): { scored: Scor
 
 function finalize(ctx: Ctx, chosen: Scored): { reasons: string[]; relaxed: string[] } {
   const relaxed: string[] = [];
-  for (const k of ctx.input.rules.softOrder) {
+  for (const k of effectiveOrder(ctx.input.rules.softOrder)) {
     if (k === "fairness") continue; // a load count is a ranking, not a break
     if (chosen.penalties[k] && chosen.notes[k]) relaxed.push(`${chosen.notes[k]} — no one else available without breaking a higher rule`);
   }
@@ -341,6 +393,8 @@ export function planMonth(input: PlanInput): PlanResult {
     personServices: new Map(),
     serviceById: new Map(input.services.map((s) => [s.id, s])),
     states: new Map(),
+    rolesOn: new Map(),
+    links: new Map(input.people.map((p) => [p.id, personLinks(p, input.rules.leadRoleIds ?? [])])),
   };
   for (const h of input.history) ctx.serveDates.set(h.personId, [...(ctx.serveDates.get(h.personId) ?? []), h.date]);
 
@@ -349,38 +403,36 @@ export function planMonth(input: PlanInput): PlanResult {
   const services = [...input.services].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
   const lockKey = (l: { serviceId: string; roleId: string; slotIndex: number }) => `${l.serviceId}|${l.roleId}|${l.slotIndex}`;
   const locks = new Map(input.locks.map((l) => [lockKey(l), l]));
-  const leadRoles = new Set(input.rules.leadRoleIds ?? []);
 
   // Locks count from the start, wherever they are in the month.
   for (const l of input.locks) {
     const s = ctx.serviceById.get(l.serviceId);
-    if (s && l.personId && ctx.people.has(l.personId)) addServe(ctx, l.personId, s);
+    if (s && l.personId && ctx.people.has(l.personId)) addServe(ctx, l.personId, s, l.roleId);
   }
 
   const out: PlannedSlot[] = [];
   const coreGaps: CoreGap[] = [];
   const unfilled: PlanResult["unfilled"] = [];
 
-  // A person placed in one role may also take their instrument's slot: always
-  // (alwaysRoleId), or only when leading (leadsOnRoleId).
-  const companionRole = (p: PlanPerson, roleId: string): string | null => {
-    if (p.alwaysRoleId && roleId !== p.alwaysRoleId && p.alwaysRoleId in p.roles) return p.alwaysRoleId;
-    if (leadRoles.has(roleId) && p.leadsOnRoleId && p.leadsOnRoleId in p.roles) return p.leadsOnRoleId;
-    return null;
-  };
+  // Placing someone in a role may bring its paired role with it ("only with"
+  // and "usually with"), if that slot is still free on this service.
   const comboFill = (st: SvcState, personId: string | null, roleId: string) => {
     if (!personId) return;
-    const p = ctx.people.get(personId);
-    const inst = p && companionRole(p, roleId);
-    if (!p || !inst) return;
-    const open = st.slots.find((x) => x.roleId === inst && !st.filled.has(slotKey(x)));
-    if (!open) return;
-    const why = p.alwaysRoleId === inst ? `Always plays ${input.roleNames[inst] ?? "their instrument"}` : `Plays ${input.roleNames[inst] ?? "their instrument"} while leading`;
-    st.filled.set(slotKey(open), { serviceId: st.service.id, roleId: open.roleId, slotIndex: open.slotIndex, personId, locked: false, extra: false, reasons: [why], relaxed: [] });
+    for (const l of ctx.links.get(personId) ?? []) {
+      if (l.role !== roleId || l.mode === "can") continue;
+      const p = ctx.people.get(personId);
+      if (!p || !(l.with in p.roles)) continue;
+      const open = st.slots.find((x) => x.roleId === l.with && !st.filled.has(slotKey(x)));
+      if (!open) continue;
+      const inst = input.roleNames[l.with] ?? "their instrument";
+      const why = l.mode === "requires" ? `Only does ${input.roleNames[roleId] ?? "this"} with ${inst}` : `Usually plays ${inst} with ${input.roleNames[roleId] ?? "this"}`;
+      addServe(ctx, personId, st.service, l.with);
+      st.filled.set(slotKey(open), { serviceId: st.service.id, roleId: open.roleId, slotIndex: open.slotIndex, personId, locked: false, extra: false, reasons: [why], relaxed: [] });
+    }
   };
   const place = (st: SvcState, slot: PlanSlot, chosen: { scored: Scored; roleId: string }, extraReason?: string) => {
     const f = finalize(ctx, chosen.scored);
-    addServe(ctx, chosen.scored.person.id, st.service);
+    addServe(ctx, chosen.scored.person.id, st.service, slot.roleId);
     st.filled.set(slotKey(slot), {
       serviceId: st.service.id, roleId: slot.roleId, slotIndex: slot.slotIndex, personId: chosen.scored.person.id,
       locked: false, extra: false, reasons: extraReason ? [extraReason, ...f.reasons] : f.reasons, relaxed: f.relaxed,
@@ -459,7 +511,7 @@ export function planMonth(input: PlanInput): PlanResult {
         if (st.filled.has(slotKey(s))) continue;
         const src = st.mirrorOf!.filled.get(slotKey(s));
         if (src?.personId && !exclusion(ctx, ctx.people.get(src.personId)!, st.service, s.roleId)) {
-          addServe(ctx, src.personId, st.service);
+          addServe(ctx, src.personId, st.service, s.roleId);
           st.filled.set(slotKey(s), { ...src, serviceId: st.service.id, locked: false, extra: false, reasons: ["Same as the linked service", ...src.reasons], relaxed: src.relaxed });
         } else {
           st.filled.set(slotKey(s), { serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: null, locked: false, extra: false, reasons: ["Not filled on the linked service"], relaxed: [] });
@@ -481,7 +533,7 @@ export function planMonth(input: PlanInput): PlanResult {
           const idx = (used.get(role[0]) ?? -1) + 1;
           if (idx > 9) continue;
           used.set(role[0], idx);
-          addServe(ctx, p.id, st.service);
+          addServe(ctx, p.id, st.service, role[0]);
           extras.push({
             serviceId: st.service.id, roleId: role[0], slotIndex: idx, personId: p.id, locked: false, extra: true,
             reasons: ["All-in Sunday: everyone available serves", role[1] === 1 ? "First-choice instrument" : `Instrument choice #${role[1]}`],
@@ -536,10 +588,8 @@ export function checkPlan(input: PlanInput, slots: PlannedSlot[]): SlotWarning[]
     else if (r === "maybe") w("warn", `${p.name} only said maybe`);
     const mine = byPerson.get(p.id) ?? [];
     const here = mine.filter((o) => o.serviceId === s.serviceId);
-    const leadCombo =
-      here.length === 2 &&
-      ((!!p.alwaysRoleId && here.some((o) => o.roleId === p.alwaysRoleId)) ||
-        (!!p.leadsOnRoleId && here.some((o) => (input.rules.leadRoleIds ?? []).includes(o.roleId)) && here.some((o) => o.roleId === p.leadsOnRoleId)));
+    const links = personLinks(p, input.rules.leadRoleIds ?? []);
+    const leadCombo = here.every((a) => here.every((b) => a === b || a.roleId === b.roleId ? a === b : canHoldTogether(links, a.roleId, b.roleId)));
     if (here.length > 1 && !leadCombo) w("block", `${p.name} is down for two roles on this service`);
     const sameDay = mine.find((o) => {
       const os = services.get(o.serviceId);
