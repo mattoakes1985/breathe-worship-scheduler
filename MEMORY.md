@@ -229,7 +229,7 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Status:** Confirmed, live
 
 ## [2026-10-11] Leading from acoustic counts as both slots
-- **Decision:** A person who leads and plays acoustic does both at once; a person who leads and plays another instrument just leads. Stored per person as `team_people.leads_on_role_id` (default Acoustic for everyone listed for both Lead and Acoustic: Dave Asplin, Jo Atkinson, Matt Oakes), editable in the Team list. When such a person leads, the planner (and a manual Lead pick) fills the Acoustic slot with them too unless it's locked to someone else; it counts as one serve and is not flagged as "two roles on one service".
+- **Decision:** A person who leads and plays acoustic does both at once; a person who leads and plays another instrument just leads. Stored per person as `team_people.leads_on_role_id` (initially defaulted for everyone listed for both Lead and Acoustic; Matt corrected 2026-10-11: only Dave Asplin leads from acoustic — Jo Atkinson leads without a guitar, and Matt Oakes does not lead on Sundays), editable in the Team list. When such a person leads, the planner (and a manual Lead pick) fills the Acoustic slot with them too unless it's locked to someone else; it counts as one serve and is not flagged as "two roles on one service".
 - **Why:** Stated by Matt ("Dave A is a lead and will always play acoustic and lead at the same time").
 - **Made by:** Matt
 - **PRD reference:** WO-3
@@ -237,6 +237,11 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 
 ## [2026-10-11] The three app accounts are real people
 - **Decision:** The accounts linked to Matt Oakes, Joy Oakes and Caleb Oakes on the team list are correct and stay linked. (Earlier notes called the lead and member accounts "test users"; they belong to Joy and Caleb.)
+- **Made by:** Matt
+- **Status:** Confirmed
+
+## [2026-10-11] Leading the team is not a Sunday role
+- **Decision:** Matt leads the worship team (admin + team lead in the app) but does not lead on Sundays, so he is not a Worship Leader candidate for the planner. App permissions come from `profiles.is_admin` and `team_memberships.is_team_lead`; planner eligibility comes from `person_roles` on the team list. The two are independent: removing a Sunday role never changes what someone can see.
 - **Made by:** Matt
 - **Status:** Confirmed
 
