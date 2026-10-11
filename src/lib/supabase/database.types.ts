@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
-// Regenerated 2026-10-10 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00018 (contact privacy, service dates, team list planner).
+// Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
+// after migrations 00014-00019 (contact privacy, service dates, team list planner).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -1969,6 +1969,7 @@ export type Database = {
           household_id: string | null
           id: string
           is_active: boolean
+          leads_on_role_id: string | null
           max_per_month: number | null
           merged_into_id: string | null
           profile_id: string | null
@@ -1983,6 +1984,7 @@ export type Database = {
           household_id?: string | null
           id?: string
           is_active?: boolean
+          leads_on_role_id?: string | null
           max_per_month?: number | null
           merged_into_id?: string | null
           profile_id?: string | null
@@ -1997,6 +1999,7 @@ export type Database = {
           household_id?: string | null
           id?: string
           is_active?: boolean
+          leads_on_role_id?: string | null
           max_per_month?: number | null
           merged_into_id?: string | null
           profile_id?: string | null
@@ -2010,6 +2013,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_people_leads_on_role_id_fkey"
+            columns: ["leads_on_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
             referencedColumns: ["id"]
           },
           {

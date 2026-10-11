@@ -235,7 +235,21 @@ function ServiceCard({
         reasons: manual ? ["Picked by hand"] : existing?.reasons ?? [],
         relaxed: manual ? [] : existing?.relaxed ?? [],
       };
-      const { error } = await supabase.from("rota_plan_slots").upsert(row, { onConflict: "service_id,role_id,slot_index" });
+      const rowsToSave = [row];
+      // Picking someone who leads from an instrument fills that slot too,
+      // unless it's locked to someone else.
+      const picked = manual && args.personId ? base.people.find((p) => p.id === args.personId) : undefined;
+      if (picked?.leads_on_role_id && roleName.get(args.roleId) === "Worship Leader") {
+        const inst = slotRows.find((s) => s.role_id === picked.leads_on_role_id && s.slot_index === 0);
+        const hasSlot = service.requirements.some((q) => q.role_id === picked.leads_on_role_id && q.quantity_required > 0);
+        if (hasSlot && !(inst?.locked && inst.person_id && inst.person_id !== picked.id)) {
+          rowsToSave.push({
+            service_id: service.id, role_id: picked.leads_on_role_id, slot_index: 0, person_id: picked.id, locked: true, source: "manual",
+            reasons: [`Plays ${roleName.get(picked.leads_on_role_id) ?? "their instrument"} while leading`], relaxed: [],
+          });
+        }
+      }
+      const { error } = await supabase.from("rota_plan_slots").upsert(rowsToSave, { onConflict: "service_id,role_id,slot_index" });
       if (error) throw new Error(error.message);
     },
     onSuccess: () => { setErr(null); invalidate(); },

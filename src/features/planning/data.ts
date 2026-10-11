@@ -191,8 +191,16 @@ export function rulesToPlanRules(rules: Rule[]): PlanRules {
     allIn: !!get("all_in"),
     softOrder: ordered.length ? ordered.map((o) => o.kind) : DEFAULT_SOFT_ORDER,
     restGapWeeks: rest ? Number(params(rest).weeks ?? 1) : 0,
+    leadRoleIds: leadRoleIdsFrom(rules),
     defaultMaxPerMonth: cap ? ((params(cap).default_max as number | null) ?? null) : null,
   };
+}
+
+/** Roles that count as leading: the core group labelled "Lead" if there is one. */
+function leadRoleIdsFrom(rules: Rule[]): string[] {
+  const core = rules.find((r) => r.kind === "core_roles");
+  const groups = ((core?.params ?? {}) as { groups?: { label: string; role_ids: string[] }[] }).groups ?? [];
+  return groups.find((g) => /^lead/i.test(g.label))?.role_ids ?? [];
 }
 
 type Base = NonNullable<ReturnType<typeof usePlannerBase>["data"]>;
@@ -200,6 +208,8 @@ type MonthData = NonNullable<ReturnType<typeof usePlannerMonth>["data"]>;
 
 export function buildPlanInput(month: string, base: Base, data: MonthData, opts: { keepUnlocked: boolean }): PlanInput {
   const rules = rulesToPlanRules(base.rules);
+  const leaderRole = base.roles.find((r) => r.name === "Worship Leader");
+  if (leaderRole && !(rules.leadRoleIds ?? []).includes(leaderRole.id)) rules.leadRoleIds = [...(rules.leadRoleIds ?? []), leaderRole.id];
   const active = base.people.filter((p) => p.is_active);
   const key = (s: string) => s.replace(/[ \s]+/g, " ").trim().toLowerCase();
   const history = [
@@ -219,7 +229,7 @@ export function buildPlanInput(month: string, base: Base, data: MonthData, opts:
       }
       return { id: s.id, date: s.service_date, startTime: (s.start_time ?? "").slice(0, 5), isAllIn: s.is_all_in, linkedServiceId: s.linked_service_id, slots };
     }),
-    people: active.map((p) => ({ id: p.id, name: p.display_name, roles: p.roles, maxPerMonth: p.max_per_month, householdId: p.household_id })),
+    people: active.map((p) => ({ id: p.id, name: p.display_name, roles: p.roles, maxPerMonth: p.max_per_month, householdId: p.household_id, leadsOnRoleId: p.leads_on_role_id })),
     households: base.households.map((h) => ({ id: h.id, preference: h.preference as "together" | "apart" | "none" })),
     availability: mergedAvailability(base, data),
     history,

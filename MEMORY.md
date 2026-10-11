@@ -217,14 +217,26 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 
 ## [2026-10-10] Planner rule defaults (editable in the Rules screen)
 - **Decision:** Hard (never relaxed): plays the role; said Yes/Maybe (no answer = not available); not archived; one role per service; no two unlinked services the same day; locks and hand-picks kept. Core lines filled first: Lead, Drums, Sound, and any ONE of Acoustic/Electric/Keys. Soft order: monthly limit → rest week (1 week) → Yes before Maybe → households → fairness (fewest serves this month, first-choice instrument, longest since last served). Default monthly limit: none. Planner fills Lead, Vox, Acoustic, Electric, Keys, Bass, Drums, Sound only. Linked double services share one band and count as one serve. Manual picks lock automatically.
-- **Why:** Matt's three rules (AGENTS.md WO-3 addendum) plus the AGENTS precedence. "Any one of Acoustic/Electric/Keys" is Claude's reading, not yet confirmed by Matt.
+- **Why:** Matt's three rules (AGENTS.md WO-3 addendum) plus the AGENTS precedence. "Any one of Acoustic/Electric/Keys" confirmed by Matt 2026-10-11 ("there isn't a hierarchy").
 - **Made by:** Matt (rules), Claude (defaults and the open reading)
 - **PRD reference:** §6.5 SCHED-2/7, WO-3
-- **Status:** Live; "any one of" reading awaiting Matt
+- **Status:** Confirmed, live
 
 ## [2026-10-10] Never use toISOString() for calendar dates
 - **Decision:** Use `toLocalISODate()` (src/lib/format.ts) or the engine's `isoDate()`. Tests run with TZ=Europe/London.
 - **Why:** toISOString() converts local midnight to UTC, which put every summer service on the Saturday. Upcoming services were moved to Sunday (00015); past ones were left alone.
 - **Made by:** Claude, approved by Matt
 - **Status:** Confirmed, live
+
+## [2026-10-11] Leading from acoustic counts as both slots
+- **Decision:** A person who leads and plays acoustic does both at once; a person who leads and plays another instrument just leads. Stored per person as `team_people.leads_on_role_id` (default Acoustic for everyone listed for both Lead and Acoustic: Dave Asplin, Jo Atkinson, Matt Oakes), editable in the Team list. When such a person leads, the planner (and a manual Lead pick) fills the Acoustic slot with them too unless it's locked to someone else; it counts as one serve and is not flagged as "two roles on one service".
+- **Why:** Stated by Matt ("Dave A is a lead and will always play acoustic and lead at the same time").
+- **Made by:** Matt
+- **PRD reference:** WO-3
+- **Status:** Confirmed, live (migration 00019)
+
+## [2026-10-11] The three app accounts are real people
+- **Decision:** The accounts linked to Matt Oakes, Joy Oakes and Caleb Oakes on the team list are correct and stay linked. (Earlier notes called the lead and member accounts "test users"; they belong to Joy and Caleb.)
+- **Made by:** Matt
+- **Status:** Confirmed
 

@@ -124,6 +124,7 @@ export default function TeamList() {
                   {p.profile_id && <span title="Has an app account"><Link2 size={14} className="text-info" aria-label="Has an app account" /></span>}
                   {p.household_id && <Badge tone="info">{hhName.get(p.household_id)}</Badge>}
                   {p.max_per_month && <Badge>max {p.max_per_month}/month</Badge>}
+                  {p.leads_on_role_id && <Badge tone="accent">Leads on {shortRole(roleName.get(p.leads_on_role_id) ?? "")}</Badge>}
                 </div>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {Object.entries(p.roles).sort((a, b) => a[1] - b[1]).map(([rid, rank]) => (
@@ -164,6 +165,8 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
   const [fullName, setFullName] = useState(person?.full_name ?? "");
   const [max, setMax] = useState<number | null>(person?.max_per_month ?? null);
   const [household, setHousehold] = useState<string>(person?.household_id ?? "");
+  const [leadsOn, setLeadsOn] = useState<string>(person?.leads_on_role_id ?? "");
+  const leadRole = base.roles.find((r) => r.name === "Worship Leader");
   const [ranks, setRanks] = useState<Record<string, number>>(person?.roles ?? {});
   const [newAlias, setNewAlias] = useState("");
   const [mergeInto, setMergeInto] = useState("");
@@ -173,7 +176,8 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
     mutationFn: async () => {
       const display = name.trim();
       if (!display) throw new Error("Give them a name.");
-      const row = { display_name: display.slice(0, 80), full_name: fullName.trim() || null, max_per_month: max, household_id: household || null };
+      const leadsOnValid = leadRole && leadRole.id in ranks && leadsOn && leadsOn in ranks ? leadsOn : null;
+      const row = { display_name: display.slice(0, 80), full_name: fullName.trim() || null, max_per_month: max, household_id: household || null, leads_on_role_id: leadsOnValid };
       let id = person?.id;
       if (id) {
         const { error } = await supabase.from("team_people").update(row).eq("id", id);
@@ -263,6 +267,15 @@ function PersonEditor({ person, onClose }: { person: Person | null; onClose: () 
             })}
           </div>
         </div>
+
+        {leadRole && leadRole.id in ranks && (
+          <Field label="When leading, also plays" hint="They fill that slot too whenever they lead (e.g. leading from acoustic).">
+            <select className="input" value={leadsOn} onChange={(e) => setLeadsOn(e.target.value)}>
+              <option value="">Nothing — just leads</option>
+              {base.roles.filter((r) => r.id !== leadRole.id && r.id in ranks).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+            </select>
+          </Field>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <Field label="Most times a month" hint="Soft limit — the planner can go over to fill a core role, and says so.">

@@ -21,6 +21,8 @@ export interface PlanPerson {
   roles: Record<string, number>;
   maxPerMonth: number | null;
   householdId: string | null;
+  /** The instrument they always play while leading (e.g. acoustic), or null. */
+  leadsOnRoleId?: string | null;
 }
 
 export interface PlanHousehold {
@@ -75,6 +77,8 @@ export interface PlanRules {
   softOrder: SoftRuleKind[];
   restGapWeeks: number; // 1 = avoid consecutive Sundays
   defaultMaxPerMonth: number | null;
+  /** Roles that count as leading (for "leads while playing acoustic"). */
+  leadRoleIds?: string[];
 }
 
 export interface PlanInput {
@@ -376,6 +380,27 @@ export function planMonth(input: PlanInput): PlanResult {
       });
     };
 
+    // A leader who plays an instrument while leading (e.g. acoustic) takes
+    // that instrument's slot too, if it's still open on this service.
+    const leadRoles = new Set(input.rules.leadRoleIds ?? []);
+    const comboFill = (personId: string | null, roleId: string) => {
+      if (!personId || !leadRoles.has(roleId)) return;
+      const p = ctx.people.get(personId);
+      const inst = p?.leadsOnRoleId;
+      if (!p || !inst || !(inst in p.roles)) return;
+      const open = slots.find((x) => x.roleId === inst && !filled.has(`${x.roleId}|${x.slotIndex}`));
+      if (!open) return;
+      filled.set(`${open.roleId}|${open.slotIndex}`, {
+        serviceId: service.id, roleId: open.roleId, slotIndex: open.slotIndex, personId,
+        locked: false, extra: false, reasons: [`Plays ${input.roleNames[inst] ?? "their instrument"} while leading`], relaxed: [],
+      });
+    };
+    for (const f of [...filled.values()]) comboFill(f.personId, f.roleId);
+    const placeAndCombo = (slot: PlanSlot, chosen: { scored: Scored; roleId: string } | null, extraReason?: string) => {
+      place(slot, chosen, extraReason);
+      if (chosen) comboFill(chosen.scored.person.id, slot.roleId);
+    };
+
     // 1. core groups first
     for (const g of input.rules.coreGroups) {
       const groupSlots = slots.filter((s) => g.roleIds.includes(s.roleId));
@@ -389,7 +414,7 @@ export function planMonth(input: PlanInput): PlanResult {
         continue;
       }
       const slot = open.find((s) => s.roleId === choice.roleId)!;
-      place(slot, choice, `Core role: ${g.label}`);
+      placeAndCombo(slot, choice, `Core role: ${g.label}`);
     }
 
     // 2. remaining slots, scarcest first (fewest people who could fill it)
@@ -409,7 +434,7 @@ export function planMonth(input: PlanInput): PlanResult {
         });
         continue;
       }
-      place(s, choice);
+      placeAndCombo(s, choice);
     }
 
     // 3. All-in Sunday: everyone else who said yes joins on their first-choice role
@@ -481,7 +506,11 @@ export function checkPlan(input: PlanInput, slots: PlannedSlot[]): SlotWarning[]
     else if (!r) w("warn", `${p.name} hasn't responded for this date`);
     else if (r === "maybe") w("warn", `${p.name} only said maybe`);
     const mine = byPerson.get(p.id) ?? [];
-    if (mine.filter((o) => o.serviceId === s.serviceId).length > 1) w("block", `${p.name} is down for two roles on this service`);
+    const here = mine.filter((o) => o.serviceId === s.serviceId);
+    const leadCombo =
+      here.length === 2 && !!p.leadsOnRoleId &&
+      here.some((o) => (input.rules.leadRoleIds ?? []).includes(o.roleId)) && here.some((o) => o.roleId === p.leadsOnRoleId);
+    if (here.length > 1 && !leadCombo) w("block", `${p.name} is down for two roles on this service`);
     const sameDay = mine.find((o) => {
       const os = services.get(o.serviceId);
       return os && os.id !== svc.id && os.date === svc.date && os.linkedServiceId !== svc.id && svc.linkedServiceId !== os.id;

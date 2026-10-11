@@ -286,6 +286,51 @@ describe("locks, All-in and re-runs", () => {
   });
 });
 
+describe("leading from an instrument", () => {
+  const rulesWithLead = { plannedRoleIds: null, coreGroups: CORE, allIn: true, softOrder: DEFAULT_SOFT_ORDER, restGapWeeks: 1, defaultMaxPerMonth: null, leadRoleIds: [LEAD] };
+
+  it("a leader who plays acoustic while leading fills both slots", () => {
+    const s = svc(sundays[0], [LEAD, AC, KEYS]);
+    const r = planMonth(input({
+      services: [s],
+      people: [person("dave", { acoustic: 1, lead: 2 }, { leadsOnRoleId: AC }), person("lou", { acoustic: 1 }), person("fran", { keys: 1 })],
+      availability: all(["dave", "lou", "fran"], [s]),
+      rules: rulesWithLead,
+    }));
+    expect(who(r, s.id, LEAD)).toBe("dave");
+    expect(who(r, s.id, AC)).toBe("dave");
+    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/while leading/);
+    expect(r.load.dave).toBe(1);
+    expect(checkPlan(input({ services: [s], people: [person("dave", { acoustic: 1, lead: 2 }, { leadsOnRoleId: AC })], availability: all(["dave"], [s]), rules: rulesWithLead }), r.slots.filter((x) => x.personId === "dave"))
+      .filter((w) => w.level === "block")).toEqual([]);
+  });
+
+  it("a leader who plays another instrument just leads", () => {
+    const s = svc(sundays[0], [LEAD, KEYS]);
+    const r = planMonth(input({
+      services: [s],
+      people: [person("kim", { lead: 1, keys: 2 }), person("fran", { keys: 1 })],
+      availability: all(["kim", "fran"], [s]),
+      rules: rulesWithLead,
+    }));
+    expect(who(r, s.id, LEAD)).toBe("kim");
+    expect(who(r, s.id, KEYS)).toBe("fran");
+  });
+
+  it("doesn't override an acoustic slot that's locked to someone else", () => {
+    const s = svc(sundays[0], [LEAD, AC]);
+    const r = planMonth(input({
+      services: [s],
+      people: [person("dave", { acoustic: 1, lead: 2 }, { leadsOnRoleId: AC }), person("lou", { acoustic: 1 })],
+      availability: all(["dave", "lou"], [s]),
+      locks: [{ serviceId: s.id, roleId: AC, slotIndex: 0, personId: "lou" }],
+      rules: rulesWithLead,
+    }));
+    expect(who(r, s.id, LEAD)).toBe("dave");
+    expect(who(r, s.id, AC)).toBe("lou");
+  });
+});
+
 describe("checkPlan (manual edits)", () => {
   it("flags hard breaks as block and soft breaks as warn", () => {
     const services = sundays.slice(0, 2).map((d) => svc(d, [DRUMS, KEYS]));
