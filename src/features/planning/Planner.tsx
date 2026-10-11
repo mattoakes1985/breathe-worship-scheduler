@@ -4,12 +4,13 @@ import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/ui";
 import { todayISO } from "@/lib/format";
 import MonthPlan from "./MonthPlan";
+import MonthGrid from "./MonthGrid";
 import ImportAvailability from "./ImportAvailability";
 import TeamList from "./TeamList";
 import RulesEditor from "./RulesEditor";
 import { shiftMonth } from "./data";
 
-type Tab = "plan" | "import" | "team" | "rules";
+type Tab = "plan" | "grid" | "import" | "team" | "rules";
 
 export default function Planner() {
   const [params, setParams] = useSearchParams();
@@ -25,6 +26,7 @@ export default function Planner() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "plan", label: "Month plan" },
+    { id: "grid", label: "Month grid" },
     { id: "import", label: "Import availability" },
     { id: "team", label: "Team list" },
     { id: "rules", label: "Rules" },
@@ -32,8 +34,8 @@ export default function Planner() {
 
   return (
     <div className="space-y-4">
-      <PageHeader back="/team-lead" title="Planner" subtitle="Build the month's rota from the availability form." />
-      <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1" role="tablist" aria-label="Planner sections">
+      <div className="print:hidden"><PageHeader back="/team-lead" title="Planner" subtitle="Build the month's rota from the availability form." /></div>
+      <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 pb-1 print:hidden" role="tablist" aria-label="Planner sections">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -47,6 +49,7 @@ export default function Planner() {
         ))}
       </div>
       {tab === "plan" && <MonthPlan month={month} setMonth={(m) => go("plan", m)} />}
+      {tab === "grid" && <MonthGrid month={month} setMonth={(m) => go("grid", m)} />}
       {tab === "import" && <ImportAvailability onDone={(m) => go("plan", m)} />}
       {tab === "team" && <TeamList />}
       {tab === "rules" && <RulesEditor />}

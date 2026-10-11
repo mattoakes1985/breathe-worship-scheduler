@@ -331,6 +331,49 @@ describe("leading from an instrument", () => {
   });
 });
 
+describe("always plays an instrument", () => {
+  it("someone who always plays acoustic takes acoustic as well as vox", () => {
+    const s = svc(sundays[0], [LEAD, VOX, AC]);
+    const r = planMonth(input({
+      services: [s],
+      people: [person("lead", { lead: 1 }), person("dave", { vox: 1, acoustic: 2 }, { alwaysRoleId: AC })],
+      availability: all(["lead", "dave"], [s]),
+      locks: [{ serviceId: s.id, roleId: VOX, slotIndex: 0, personId: "dave" }],
+    }));
+    expect(who(r, s.id, VOX)).toBe("dave");
+    expect(who(r, s.id, AC)).toBe("dave");
+    expect(r.slots.find((x) => x.roleId === AC)!.reasons[0]).toMatch(/Always plays/);
+  });
+
+  it("isn't put on vox if someone else already has acoustic", () => {
+    const s = svc(sundays[0], [VOX, AC]);
+    const r = planMonth(input({
+      services: [s],
+      people: [person("dave", { vox: 1, acoustic: 2 }, { alwaysRoleId: AC }), person("lou", { acoustic: 1 }), person("kit", { vox: 2 })],
+      availability: all(["dave", "lou", "kit"], [s]),
+      locks: [{ serviceId: s.id, roleId: AC, slotIndex: 0, personId: "lou" }],
+    }));
+    expect(who(r, s.id, VOX)).toBe("kit");
+  });
+});
+
+describe("two services on one day", () => {
+  it("shares people between them instead of filling the first one", () => {
+    const early = svc(sundays[0], [LEAD, DRUMS, VOX], { id: "early", startTime: "09:15" });
+    const late = svc(sundays[0], [LEAD, DRUMS, VOX], { id: "late" });
+    const r = planMonth(input({
+      services: [early, late],
+      people: [person("l1", { lead: 1 }), person("l2", { lead: 1 }), person("d1", { drums: 1 }), person("d2", { drums: 1 }), person("v1", { vox: 1 })],
+      availability: all(["l1", "l2", "d1", "d2", "v1"], [early, late]),
+    }));
+    for (const id of ["early", "late"]) {
+      expect(who(r, id, LEAD)).not.toBeNull();
+      expect(who(r, id, DRUMS)).not.toBeNull();
+    }
+    expect(r.coreGaps.filter((g) => g.label !== "Sound" && g.label.indexOf("Acoustic") < 0)).toEqual([]);
+  });
+});
+
 describe("checkPlan (manual edits)", () => {
   it("flags hard breaks as block and soft breaks as warn", () => {
     const services = sundays.slice(0, 2).map((d) => svc(d, [DRUMS, KEYS]));

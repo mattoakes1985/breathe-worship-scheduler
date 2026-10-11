@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00019 (contact privacy, service dates, team list planner).
+// after migrations 00014-00022 (contact privacy, service dates, planner, month grid).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -1108,6 +1108,7 @@ export type Database = {
       }
       service_order_items: {
         Row: {
+          after_song: number | null
           duration_minutes: number | null
           id: string
           item_type: string
@@ -1118,6 +1119,7 @@ export type Database = {
           title: string
         }
         Insert: {
+          after_song?: number | null
           duration_minutes?: number | null
           id?: string
           item_type: string
@@ -1128,6 +1130,7 @@ export type Database = {
           title: string
         }
         Update: {
+          after_song?: number | null
           duration_minutes?: number | null
           id?: string
           item_type?: string
@@ -1297,17 +1300,21 @@ export type Database = {
           created_at: string
           created_by: string | null
           end_time: string | null
+          events_note: string | null
           id: string
           is_all_in: boolean
           linked_service_id: string | null
           location: string | null
           notes: string | null
+          other_items: string | null
+          preacher: string | null
           scheduling_locked: boolean
           service_date: string
           start_time: string
           status: string
           team_id: string
           template_id: string | null
+          theme: string | null
           title: string
           updated_at: string
         }
@@ -1317,17 +1324,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           end_time?: string | null
+          events_note?: string | null
           id?: string
           is_all_in?: boolean
           linked_service_id?: string | null
           location?: string | null
           notes?: string | null
+          other_items?: string | null
+          preacher?: string | null
           scheduling_locked?: boolean
           service_date: string
           start_time: string
           status?: string
           team_id: string
           template_id?: string | null
+          theme?: string | null
           title: string
           updated_at?: string
         }
@@ -1337,17 +1348,21 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           end_time?: string | null
+          events_note?: string | null
           id?: string
           is_all_in?: boolean
           linked_service_id?: string | null
           location?: string | null
           notes?: string | null
+          other_items?: string | null
+          preacher?: string | null
           scheduling_locked?: boolean
           service_date?: string
           start_time?: string
           status?: string
           team_id?: string
           template_id?: string | null
+          theme?: string | null
           title?: string
           updated_at?: string
         }
@@ -1963,6 +1978,7 @@ export type Database = {
       }
       team_people: {
         Row: {
+          always_role_id: string | null
           created_at: string
           display_name: string
           full_name: string | null
@@ -1978,6 +1994,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          always_role_id?: string | null
           created_at?: string
           display_name: string
           full_name?: string | null
@@ -1993,6 +2010,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          always_role_id?: string | null
           created_at?: string
           display_name?: string
           full_name?: string | null
@@ -2008,6 +2026,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "team_people_always_role_id_fkey"
+            columns: ["always_role_id"]
+            isOneToOne: false
+            referencedRelation: "roles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_people_household_id_fkey"
             columns: ["household_id"]
@@ -2066,6 +2091,49 @@ export type Database = {
           },
           {
             foreignKeyName: "team_people_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_settings: {
+        Row: {
+          grid_rows: Json
+          team_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          grid_rows?: Json
+          team_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          grid_rows?: Json
+          team_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_settings_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: true
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_settings_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -2218,17 +2286,21 @@ export type Database = {
           created_at: string
           created_by: string | null
           end_time: string | null
+          events_note: string | null
           id: string
           is_all_in: boolean
           linked_service_id: string | null
           location: string | null
           notes: string | null
+          other_items: string | null
+          preacher: string | null
           scheduling_locked: boolean
           service_date: string
           start_time: string
           status: string
           team_id: string
           template_id: string | null
+          theme: string | null
           title: string
           updated_at: string
         }[]

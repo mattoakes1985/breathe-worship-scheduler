@@ -58,7 +58,7 @@ export default function RulesEditor() {
           <li>Only people listed for that instrument</li>
           <li>Only people who said Yes or Maybe for that date — no answer counts as not available</li>
           <li>Archived people are never scheduled</li>
-          <li>Nobody in two roles on one service (except a leader who plays an instrument while leading — set per person in the Team list), or on two separate services the same day (linked double services count as one)</li>
+          <li>Nobody in two roles on one service (except someone who always plays an instrument, or leads from one — set per person in the Team list), or on two separate services the same day (linked double services count as one)</li>
           <li>Locked slots and anything you pick by hand stay as they are</li>
         </ul>
       </Card>

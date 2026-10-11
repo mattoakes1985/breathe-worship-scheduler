@@ -236,16 +236,21 @@ function ServiceCard({
         relaxed: manual ? [] : existing?.relaxed ?? [],
       };
       const rowsToSave = [row];
-      // Picking someone who leads from an instrument fills that slot too,
-      // unless it's locked to someone else.
+      // Picking someone who always plays an instrument (or leads from one) fills
+      // that slot too, unless it's locked to someone else.
       const picked = manual && args.personId ? base.people.find((p) => p.id === args.personId) : undefined;
-      if (picked?.leads_on_role_id && roleName.get(args.roleId) === "Worship Leader") {
-        const inst = slotRows.find((s) => s.role_id === picked.leads_on_role_id && s.slot_index === 0);
-        const hasSlot = service.requirements.some((q) => q.role_id === picked.leads_on_role_id && q.quantity_required > 0);
+      const companion = picked
+        ? picked.always_role_id && picked.always_role_id !== args.roleId
+          ? picked.always_role_id
+          : roleName.get(args.roleId) === "Worship Leader" ? picked.leads_on_role_id : null
+        : null;
+      if (picked && companion) {
+        const inst = slotRows.find((s) => s.role_id === companion && s.slot_index === 0);
+        const hasSlot = service.requirements.some((q) => q.role_id === companion && q.quantity_required > 0);
         if (hasSlot && !(inst?.locked && inst.person_id && inst.person_id !== picked.id)) {
           rowsToSave.push({
-            service_id: service.id, role_id: picked.leads_on_role_id, slot_index: 0, person_id: picked.id, locked: true, source: "manual",
-            reasons: [`Plays ${roleName.get(picked.leads_on_role_id) ?? "their instrument"} while leading`], relaxed: [],
+            service_id: service.id, role_id: companion, slot_index: 0, person_id: picked.id, locked: true, source: "manual",
+            reasons: [picked.always_role_id === companion ? `Always plays ${roleName.get(companion) ?? "their instrument"}` : `Plays ${roleName.get(companion) ?? "their instrument"} while leading`], relaxed: [],
           });
         }
       }

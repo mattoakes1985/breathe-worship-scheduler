@@ -23,6 +23,8 @@ export interface PlanPerson {
   householdId: string | null;
   /** The instrument they always play while leading (e.g. acoustic), or null. */
   leadsOnRoleId?: string | null;
+  /** An instrument they play whenever they serve, in any role (e.g. Dave: acoustic). */
+  alwaysRoleId?: string | null;
 }
 
 export interface PlanHousehold {
@@ -137,7 +139,17 @@ interface Ctx {
   /** person -> services they are on, for the same-day clash check */
   personServices: Map<string, Set<string>>;
   serviceById: Map<string, PlanService>;
+  /** per-service planning state for the day being planned (and earlier days) */
+  states: Map<string, SvcState>;
 }
+
+interface SvcState {
+  service: PlanService;
+  slots: PlanSlot[];
+  filled: Map<string, PlannedSlot>; // `${roleId}|${slotIndex}`
+  mirrorOf: SvcState | null;
+}
+const slotKey = (s: { roleId: string; slotIndex: number }) => `${s.roleId}|${s.slotIndex}`;
 
 function addServe(ctx: Ctx, personId: string, service: PlanService) {
   const set = ctx.onService.get(service.id) ?? new Set<string>();
@@ -163,7 +175,7 @@ function linked(a: PlanService, b: PlanService) {
   return a.linkedServiceId === b.id || b.linkedServiceId === a.id;
 }
 
-type Exclusion = "not_eligible" | "said_no" | "no_response" | "on_service" | "same_day";
+type Exclusion = "not_eligible" | "said_no" | "no_response" | "on_service" | "same_day" | "instrument_taken";
 
 function exclusion(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string): Exclusion | null {
   if (!(roleId in p.roles)) return "not_eligible";
@@ -175,6 +187,14 @@ function exclusion(ctx: Ctx, p: PlanPerson, service: PlanService, roleId: string
     const other = ctx.serviceById.get(sid);
     if (other && other.id !== service.id && other.date === service.date && !linked(other, service)) return "same_day";
   }
+  // Someone who always plays an instrument can only take another role if that
+  // instrument's slot on this service is still free (or already theirs).
+  const anchor = p.alwaysRoleId;
+  if (anchor && roleId !== anchor) {
+    const st = ctx.states.get(service.id);
+    const anchorSlots = st ? st.slots.filter((x) => x.roleId === anchor) : [];
+    if (anchorSlots.length && !anchorSlots.some((x) => !st!.filled.has(slotKey(x)) || st!.filled.get(slotKey(x))?.personId === p.id)) return "instrument_taken";
+  }
   return null;
 }
 
@@ -184,6 +204,7 @@ const EXCLUSION_TEXT: Record<Exclusion, string> = {
   no_response: "hasn't responded",
   on_service: "already on this service",
   same_day: "on another service that day",
+  instrument_taken: "their instrument is taken that day",
 };
 
 interface Scored {
@@ -295,7 +316,7 @@ function finalize(ctx: Ctx, chosen: Scored): { reasons: string[]; relaxed: strin
 }
 
 function closestFor(ctx: Ctx, service: PlanService, roleIds: string[]): CoreGap["closest"] {
-  const rank: Record<Exclusion, number> = { no_response: 0, same_day: 1, on_service: 2, said_no: 3, not_eligible: 9 };
+  const rank: Record<Exclusion, number> = { no_response: 0, same_day: 1, instrument_taken: 2, on_service: 3, said_no: 4, not_eligible: 9 };
   const seen = new Map<string, { personId: string; name: string; why: string; r: number }>();
   for (const roleId of roleIds) {
     for (const p of ctx.input.people) {
@@ -319,6 +340,7 @@ export function planMonth(input: PlanInput): PlanResult {
     onService: new Map(),
     personServices: new Map(),
     serviceById: new Map(input.services.map((s) => [s.id, s])),
+    states: new Map(),
   };
   for (const h of input.history) ctx.serveDates.set(h.personId, [...(ctx.serveDates.get(h.personId) ?? []), h.date]);
 
@@ -327,6 +349,7 @@ export function planMonth(input: PlanInput): PlanResult {
   const services = [...input.services].sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime));
   const lockKey = (l: { serviceId: string; roleId: string; slotIndex: number }) => `${l.serviceId}|${l.roleId}|${l.slotIndex}`;
   const locks = new Map(input.locks.map((l) => [lockKey(l), l]));
+  const leadRoles = new Set(input.rules.leadRoleIds ?? []);
 
   // Locks count from the start, wherever they are in the month.
   for (const l of input.locks) {
@@ -337,136 +360,142 @@ export function planMonth(input: PlanInput): PlanResult {
   const out: PlannedSlot[] = [];
   const coreGaps: CoreGap[] = [];
   const unfilled: PlanResult["unfilled"] = [];
-  const result = new Map<string, PlannedSlot>();
 
-  for (const service of services) {
-    const slots = service.slots.filter((s) => isPlanned(s.roleId) || locks.has(lockKey({ serviceId: service.id, ...s })));
-    const filled = new Map<string, PlannedSlot>();
+  // A person placed in one role may also take their instrument's slot: always
+  // (alwaysRoleId), or only when leading (leadsOnRoleId).
+  const companionRole = (p: PlanPerson, roleId: string): string | null => {
+    if (p.alwaysRoleId && roleId !== p.alwaysRoleId && p.alwaysRoleId in p.roles) return p.alwaysRoleId;
+    if (leadRoles.has(roleId) && p.leadsOnRoleId && p.leadsOnRoleId in p.roles) return p.leadsOnRoleId;
+    return null;
+  };
+  const comboFill = (st: SvcState, personId: string | null, roleId: string) => {
+    if (!personId) return;
+    const p = ctx.people.get(personId);
+    const inst = p && companionRole(p, roleId);
+    if (!p || !inst) return;
+    const open = st.slots.find((x) => x.roleId === inst && !st.filled.has(slotKey(x)));
+    if (!open) return;
+    const why = p.alwaysRoleId === inst ? `Always plays ${input.roleNames[inst] ?? "their instrument"}` : `Plays ${input.roleNames[inst] ?? "their instrument"} while leading`;
+    st.filled.set(slotKey(open), { serviceId: st.service.id, roleId: open.roleId, slotIndex: open.slotIndex, personId, locked: false, extra: false, reasons: [why], relaxed: [] });
+  };
+  const place = (st: SvcState, slot: PlanSlot, chosen: { scored: Scored; roleId: string }, extraReason?: string) => {
+    const f = finalize(ctx, chosen.scored);
+    addServe(ctx, chosen.scored.person.id, st.service);
+    st.filled.set(slotKey(slot), {
+      serviceId: st.service.id, roleId: slot.roleId, slotIndex: slot.slotIndex, personId: chosen.scored.person.id,
+      locked: false, extra: false, reasons: extraReason ? [extraReason, ...f.reasons] : f.reasons, relaxed: f.relaxed,
+    });
+    comboFill(st, chosen.scored.person.id, slot.roleId);
+  };
+
+  // Plan a day at a time, so two services on the same day share people fairly
+  // instead of the first one taking everybody.
+  const days = [...new Set(services.map((s) => s.date))];
+  for (const day of days) {
+    const states: SvcState[] = services
+      .filter((s) => s.date === day)
+      .map((service) => ({
+        service,
+        slots: service.slots.filter((s) => isPlanned(s.roleId) || locks.has(lockKey({ serviceId: service.id, ...s }))),
+        filled: new Map<string, PlannedSlot>(),
+        mirrorOf: null,
+      }));
+    for (const st of states) ctx.states.set(st.service.id, st);
+    // A service linked to an earlier one the same day is played by the same band.
+    for (const st of states) {
+      const partner = st.service.linkedServiceId ? states.find((o) => o.service.id === st.service.linkedServiceId) : undefined;
+      if (partner && partner.service.startTime <= st.service.startTime && partner.mirrorOf === null && partner !== st) st.mirrorOf = partner;
+    }
+    const active = states.filter((st) => !st.mirrorOf);
 
     // 0. locked slots stay exactly as they are
-    for (const s of slots) {
-      const l = locks.get(lockKey({ serviceId: service.id, ...s }));
-      if (l) {
-        filled.set(`${s.roleId}|${s.slotIndex}`, {
-          serviceId: service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: l.personId,
-          locked: true, extra: false, reasons: ["Locked"], relaxed: [],
-        });
+    for (const st of states) {
+      for (const s of st.slots) {
+        const l = locks.get(lockKey({ serviceId: st.service.id, ...s }));
+        if (l) st.filled.set(slotKey(s), { serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: l.personId, locked: true, extra: false, reasons: ["Locked"], relaxed: [] });
+      }
+      for (const f of [...st.filled.values()]) comboFill(st, f.personId, f.roleId);
+    }
+
+    // 1. core groups first, on every service that day
+    for (const g of input.rules.coreGroups) {
+      for (const st of active) {
+        const groupSlots = st.slots.filter((s) => g.roleIds.includes(s.roleId));
+        if (groupSlots.length === 0) continue;
+        if (groupSlots.some((s) => st.filled.get(slotKey(s))?.personId)) continue;
+        const open = groupSlots.filter((s) => !st.filled.has(slotKey(s)));
+        const choice = open.length ? pick(ctx, st.service, [...new Set(open.map((s) => s.roleId))]) : null;
+        if (!choice) {
+          coreGaps.push({ serviceId: st.service.id, label: g.label, closest: closestFor(ctx, st.service, g.roleIds) });
+          continue;
+        }
+        place(st, open.find((s) => s.roleId === choice.roleId)!, choice, `Core role: ${g.label}`);
       }
     }
 
-    // A linked service mirrors its partner (already planned earlier the same day).
-    const partner = service.linkedServiceId ? ctx.serviceById.get(service.linkedServiceId) : undefined;
-    if (partner && partner.date === service.date) {
-      for (const s of slots) {
-        const key = `${s.roleId}|${s.slotIndex}`;
-        if (filled.has(key)) continue;
-        const src = result.get(`${partner.id}|${s.roleId}|${s.slotIndex}`);
-        if (src?.personId && !exclusion(ctx, ctx.people.get(src.personId)!, service, s.roleId)) {
-          addServe(ctx, src.personId, service);
-          filled.set(key, { ...src, serviceId: service.id, locked: false, extra: false, reasons: ["Same as the linked service", ...src.reasons], relaxed: src.relaxed });
+    // 2. remaining slots across the day, scarcest first (fewest people who could fill it)
+    for (;;) {
+      const open = active.flatMap((st) => st.slots.filter((s) => !st.filled.has(slotKey(s))).map((s) => ({ st, s })));
+      if (!open.length) break;
+      const counts = open.map((o) => ({ ...o, n: input.people.filter((p) => !exclusion(ctx, p, o.st.service, o.s.roleId)).length }));
+      counts.sort(
+        (a, b) =>
+          a.n - b.n ||
+          (a.st.filled.size - b.st.filled.size) || // the emptier service goes first on ties
+          a.s.roleId.localeCompare(b.s.roleId) || a.s.slotIndex - b.s.slotIndex || a.st.service.startTime.localeCompare(b.st.service.startTime)
+      );
+      const { st, s } = counts[0];
+      const choice = pick(ctx, st.service, [s.roleId]);
+      if (!choice) {
+        st.filled.set(slotKey(s), { serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: null, locked: false, extra: false, reasons: ["No one available who plays this"], relaxed: [] });
+        continue;
+      }
+      place(st, s, choice);
+    }
+
+    // 3. linked services copy their partner's band
+    for (const st of states.filter((x) => x.mirrorOf)) {
+      for (const s of st.slots) {
+        if (st.filled.has(slotKey(s))) continue;
+        const src = st.mirrorOf!.filled.get(slotKey(s));
+        if (src?.personId && !exclusion(ctx, ctx.people.get(src.personId)!, st.service, s.roleId)) {
+          addServe(ctx, src.personId, st.service);
+          st.filled.set(slotKey(s), { ...src, serviceId: st.service.id, locked: false, extra: false, reasons: ["Same as the linked service", ...src.reasons], relaxed: src.relaxed });
+        } else {
+          st.filled.set(slotKey(s), { serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: null, locked: false, extra: false, reasons: ["Not filled on the linked service"], relaxed: [] });
         }
       }
     }
 
-    const openSlots = () => slots.filter((s) => !filled.has(`${s.roleId}|${s.slotIndex}`));
-    const place = (slot: PlanSlot, chosen: { scored: Scored; roleId: string } | null, extraReason?: string) => {
-      const key = `${slot.roleId}|${slot.slotIndex}`;
-      if (!chosen) return;
-      const f = finalize(ctx, chosen.scored);
-      addServe(ctx, chosen.scored.person.id, service);
-      filled.set(key, {
-        serviceId: service.id, roleId: slot.roleId, slotIndex: slot.slotIndex, personId: chosen.scored.person.id,
-        locked: false, extra: false, reasons: extraReason ? [extraReason, ...f.reasons] : f.reasons, relaxed: f.relaxed,
-      });
-    };
-
-    // A leader who plays an instrument while leading (e.g. acoustic) takes
-    // that instrument's slot too, if it's still open on this service.
-    const leadRoles = new Set(input.rules.leadRoleIds ?? []);
-    const comboFill = (personId: string | null, roleId: string) => {
-      if (!personId || !leadRoles.has(roleId)) return;
-      const p = ctx.people.get(personId);
-      const inst = p?.leadsOnRoleId;
-      if (!p || !inst || !(inst in p.roles)) return;
-      const open = slots.find((x) => x.roleId === inst && !filled.has(`${x.roleId}|${x.slotIndex}`));
-      if (!open) return;
-      filled.set(`${open.roleId}|${open.slotIndex}`, {
-        serviceId: service.id, roleId: open.roleId, slotIndex: open.slotIndex, personId,
-        locked: false, extra: false, reasons: [`Plays ${input.roleNames[inst] ?? "their instrument"} while leading`], relaxed: [],
-      });
-    };
-    for (const f of [...filled.values()]) comboFill(f.personId, f.roleId);
-    const placeAndCombo = (slot: PlanSlot, chosen: { scored: Scored; roleId: string } | null, extraReason?: string) => {
-      place(slot, chosen, extraReason);
-      if (chosen) comboFill(chosen.scored.person.id, slot.roleId);
-    };
-
-    // 1. core groups first
-    for (const g of input.rules.coreGroups) {
-      const groupSlots = slots.filter((s) => g.roleIds.includes(s.roleId));
-      if (groupSlots.length === 0) continue;
-      const already = groupSlots.some((s) => filled.get(`${s.roleId}|${s.slotIndex}`)?.personId);
-      if (already) continue;
-      const open = groupSlots.filter((s) => !filled.has(`${s.roleId}|${s.slotIndex}`));
-      const choice = pick(ctx, service, [...new Set(open.map((s) => s.roleId))]);
-      if (!choice) {
-        coreGaps.push({ serviceId: service.id, label: g.label, closest: closestFor(ctx, service, g.roleIds) });
-        continue;
+    for (const st of states) {
+      // 4. All-in Sunday: everyone else who said yes joins on their first-choice role
+      const extras: PlannedSlot[] = [];
+      if (st.service.isAllIn && input.rules.allIn && !st.mirrorOf) {
+        const used = new Map<string, number>();
+        for (const f of st.filled.values()) used.set(f.roleId, Math.max(used.get(f.roleId) ?? -1, f.slotIndex));
+        for (const p of [...input.people].sort((a, b) => a.name.localeCompare(b.name))) {
+          if (ctx.avail.get(`${st.service.id}|${p.id}`) !== "yes") continue;
+          const roles = Object.entries(p.roles).filter(([r]) => isPlanned(r)).sort((a, b) => a[1] - b[1]);
+          const role = roles.find(([r]) => !exclusion(ctx, p, st.service, r));
+          if (!role) continue;
+          const idx = (used.get(role[0]) ?? -1) + 1;
+          if (idx > 9) continue;
+          used.set(role[0], idx);
+          addServe(ctx, p.id, st.service);
+          extras.push({
+            serviceId: st.service.id, roleId: role[0], slotIndex: idx, personId: p.id, locked: false, extra: true,
+            reasons: ["All-in Sunday: everyone available serves", role[1] === 1 ? "First-choice instrument" : `Instrument choice #${role[1]}`],
+            relaxed: [],
+          });
+        }
       }
-      const slot = open.find((s) => s.roleId === choice.roleId)!;
-      placeAndCombo(slot, choice, `Core role: ${g.label}`);
-    }
-
-    // 2. remaining slots, scarcest first (fewest people who could fill it)
-    while (openSlots().length) {
-      const open = openSlots();
-      const counts = open.map((s) => ({
-        s,
-        n: input.people.filter((p) => !exclusion(ctx, p, service, s.roleId)).length,
-      }));
-      counts.sort((a, b) => a.n - b.n || a.s.roleId.localeCompare(b.s.roleId) || a.s.slotIndex - b.s.slotIndex);
-      const { s } = counts[0];
-      const choice = pick(ctx, service, [s.roleId]);
-      if (!choice) {
-        filled.set(`${s.roleId}|${s.slotIndex}`, {
-          serviceId: service.id, roleId: s.roleId, slotIndex: s.slotIndex, personId: null,
-          locked: false, extra: false, reasons: ["No one available who plays this"], relaxed: [],
-        });
-        continue;
+      for (const s of st.slots) {
+        const f = st.filled.get(slotKey(s))!;
+        out.push(f);
+        if (!f.personId) unfilled.push({ serviceId: st.service.id, roleId: s.roleId, slotIndex: s.slotIndex });
       }
-      placeAndCombo(s, choice);
+      out.push(...extras);
     }
-
-    // 3. All-in Sunday: everyone else who said yes joins on their first-choice role
-    const extras: PlannedSlot[] = [];
-    if (service.isAllIn && input.rules.allIn) {
-      const used = new Map<string, number>();
-      for (const f of filled.values()) used.set(f.roleId, Math.max(used.get(f.roleId) ?? -1, f.slotIndex));
-      const people = [...input.people].sort((a, b) => a.name.localeCompare(b.name));
-      for (const p of people) {
-        if (ctx.avail.get(`${service.id}|${p.id}`) !== "yes") continue;
-        const roles = Object.entries(p.roles).filter(([r]) => isPlanned(r)).sort((a, b) => a[1] - b[1]);
-        const role = roles.find(([r]) => !exclusion(ctx, p, service, r));
-        if (!role) continue;
-        const idx = (used.get(role[0]) ?? -1) + 1;
-        if (idx > 9) continue;
-        used.set(role[0], idx);
-        addServe(ctx, p.id, service);
-        extras.push({
-          serviceId: service.id, roleId: role[0], slotIndex: idx, personId: p.id, locked: false, extra: true,
-          reasons: ["All-in Sunday: everyone available serves", role[1] === 1 ? "First-choice instrument" : `Instrument choice #${role[1]}`],
-          relaxed: [],
-        });
-      }
-    }
-
-    for (const s of slots) {
-      const f = filled.get(`${s.roleId}|${s.slotIndex}`)!;
-      out.push(f);
-      result.set(`${service.id}|${s.roleId}|${s.slotIndex}`, f);
-      if (!f.personId) unfilled.push({ serviceId: service.id, roleId: s.roleId, slotIndex: s.slotIndex });
-    }
-    out.push(...extras);
   }
 
   return { slots: out, coreGaps, unfilled, load: Object.fromEntries(ctx.load) };
@@ -508,8 +537,9 @@ export function checkPlan(input: PlanInput, slots: PlannedSlot[]): SlotWarning[]
     const mine = byPerson.get(p.id) ?? [];
     const here = mine.filter((o) => o.serviceId === s.serviceId);
     const leadCombo =
-      here.length === 2 && !!p.leadsOnRoleId &&
-      here.some((o) => (input.rules.leadRoleIds ?? []).includes(o.roleId)) && here.some((o) => o.roleId === p.leadsOnRoleId);
+      here.length === 2 &&
+      ((!!p.alwaysRoleId && here.some((o) => o.roleId === p.alwaysRoleId)) ||
+        (!!p.leadsOnRoleId && here.some((o) => (input.rules.leadRoleIds ?? []).includes(o.roleId)) && here.some((o) => o.roleId === p.leadsOnRoleId)));
     if (here.length > 1 && !leadCombo) w("block", `${p.name} is down for two roles on this service`);
     const sameDay = mine.find((o) => {
       const os = services.get(o.serviceId);
