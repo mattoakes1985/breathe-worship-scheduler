@@ -43,6 +43,26 @@ function ics(events: { uid: string; date: string; start: string; end: string | n
     "PRODID:-//Breathe Worship Scheduler//EN",
     "CALSCALE:GREGORIAN",
     "X-WR-CALNAME:Breathe Worship — My Rota",
+    "X-WR-TIMEZONE:Europe/London",
+    // Service times are UK wall-clock times; say so, so a phone abroad shows
+    // them correctly instead of treating them as "floating" local times.
+    "BEGIN:VTIMEZONE",
+    "TZID:Europe/London",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:+0000",
+    "TZOFFSETTO:+0100",
+    "TZNAME:BST",
+    "DTSTART:19700329T010000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+    "END:DAYLIGHT",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:+0100",
+    "TZOFFSETTO:+0000",
+    "TZNAME:GMT",
+    "DTSTART:19701025T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+    "END:STANDARD",
+    "END:VTIMEZONE",
   ];
   for (const e of events) {
     const d = e.date.replace(/[^0-9]/g, "");
@@ -51,8 +71,8 @@ function ics(events: { uid: string; date: string; start: string; end: string | n
       "BEGIN:VEVENT",
       `UID:${e.uid.replace(/[^0-9a-f-]/gi, "")}@breathe-worship`,
       `DTSTAMP:${stamp}`,
-      `DTSTART:${d}T${t(e.start)}`,
-      `DTEND:${d}T${e.end ? t(e.end) : t(e.start)}`,
+      `DTSTART;TZID=Europe/London:${d}T${t(e.start)}`,
+      `DTEND;TZID=Europe/London:${d}T${e.end ? t(e.end) : t(e.start)}`,
       `SUMMARY:${icsText(`${e.role} — ${e.title}`)}`,
       "END:VEVENT"
     );

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "tsc --noEmit",
-    "test": "TZ=Europe/London vitest run",
+    "test": "TZ=Europe/London vitest run && TZ=America/Los_Angeles vitest run && TZ=Pacific/Auckland vitest run",
     "test:watch": "vitest",
     "preview": "vite preview"
   },
