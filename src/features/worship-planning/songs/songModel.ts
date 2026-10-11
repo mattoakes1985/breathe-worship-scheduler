@@ -47,6 +47,41 @@ export function parseKeys(raw: string | null | undefined): string[] {
   return out;
 }
 
+/** Semitone index of a normalised key root (C = 0), or null if not a key. */
+function keyIndex(k: string): { i: number; minor: boolean } | null {
+  const n = normaliseKey(k);
+  const minor = n.endsWith("m");
+  const i = KEY_ORDER.indexOf(minor ? n.slice(0, -1) : n);
+  return i < 0 ? null : { i, minor };
+}
+const keyAt = (i: number, minor: boolean) => KEY_ORDER[((i % 12) + 12) % 12] + (minor ? "m" : "");
+
+/**
+ * Keys that sit comfortably next to `key` in a set: the same key, a 4th up
+ * and a 5th up, and the relative minor/major. ("Songs that work in the key".)
+ */
+export function closeKeys(key: string): string[] {
+  const k = keyIndex(key);
+  if (!k) return [normaliseKey(key)];
+  return k.minor
+    ? [keyAt(k.i, true), keyAt(k.i + 5, true), keyAt(k.i + 7, true), keyAt(k.i + 3, false)]
+    : [keyAt(k.i, false), keyAt(k.i + 5, false), keyAt(k.i + 7, false), keyAt(k.i + 9, true)];
+}
+
+/** How the key moves from one song to the next, in plain words. */
+export function keyMove(from: string | null | undefined, to: string | null | undefined): string | null {
+  const a = from ? keyIndex(parseKeys(from)[0] ?? "") : null;
+  const b = to ? keyIndex(parseKeys(to)[0] ?? "") : null;
+  if (!a || !b) return null;
+  if (a.minor !== b.minor) return ((a.i + (a.minor ? 3 : 9)) % 12) === b.i ? "relative key" : "major/minor change";
+  const up = (b.i - a.i + 12) % 12;
+  const NAMES: Record<number, string> = {
+    0: "same key", 1: "up a semitone", 2: "up a tone", 3: "up a minor 3rd", 4: "up a 3rd", 5: "up a 4th", 6: "a tritone away",
+    7: "up a 5th", 8: "down a 3rd", 9: "down a minor 3rd", 10: "down a tone", 11: "down a semitone",
+  };
+  return NAMES[up];
+}
+
 export type KeyField = "any" | "female" | "male" | "played";
 
 export function songKeys(s: SongWithStats, field: KeyField): string[] {
@@ -87,6 +122,8 @@ export interface SongFilters {
   q?: string;
   keys?: string[];
   keyField?: KeyField;
+  /** also match keys close to the chosen ones (4th, 5th, relative) */
+  closeKeys?: boolean;
   tempos?: Tempo[];
   bpmMin?: number;
   bpmMax?: number;
@@ -145,7 +182,7 @@ export function matchesFilters(s: SongWithStats, f: SongFilters, today = new Dat
       return false;
   }
   if (f.keys?.length) {
-    const want = f.keys.map(normaliseKey);
+    const want = f.closeKeys ? [...new Set(f.keys.flatMap(closeKeys))] : f.keys.map(normaliseKey);
     const have = songKeys(s, f.keyField ?? "any");
     if (!want.some((k) => have.includes(k))) return false;
   }
@@ -244,7 +281,7 @@ export function activeFilterCount(f: SongFilters): number {
 export function describeFilters(f: SongFilters): string {
   const parts: string[] = [];
   if (f.tempos?.length) parts.push(f.tempos.map((t) => t).join("/"));
-  if (f.keys?.length) parts.push(`in ${f.keys.join("/")}${f.keyField && f.keyField !== "any" ? ` (${f.keyField})` : ""}`);
+  if (f.keys?.length) parts.push(`in ${f.keys.join("/")}${f.closeKeys ? " or a close key" : ""}${f.keyField && f.keyField !== "any" ? ` (${f.keyField})` : ""}`);
   if (f.artists?.length) parts.push(`by ${f.artists.join(" or ")}`);
   if (f.tags?.length) parts.push(`tagged ${f.tags.join(f.tagMode === "all" ? " + " : " or ")}`);
   if (f.timeSigs?.length) parts.push(f.timeSigs.join("/"));

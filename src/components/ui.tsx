@@ -149,11 +149,14 @@ export function Modal({
   onClose,
   title,
   children,
+  wide,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: ReactNode;
+  /** a wider sheet for working screens (e.g. the song finder) */
+  wide?: boolean;
 }) {
   if (!open) return null;
   return (
@@ -165,7 +168,7 @@ export function Modal({
       aria-label={title}
     >
       <div
-        className="bg-surface/60 backdrop-blur-2xl border border-white/15 dark:border-white/5 w-full sm:max-w-lg rounded-t-lg sm:rounded-lg shadow-raised max-h-[90vh] overflow-y-auto"
+        className={`bg-surface/60 backdrop-blur-2xl border border-white/15 dark:border-white/5 w-full ${wide ? "sm:max-w-3xl" : "sm:max-w-lg"} rounded-t-lg sm:rounded-lg shadow-raised max-h-[90vh] overflow-y-auto`}
         style={{ backgroundImage: "linear-gradient(160deg, rgb(255 255 255 / 0.08), transparent 50%)" }}
         onClick={(e) => e.stopPropagation()}
       >

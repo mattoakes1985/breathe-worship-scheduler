@@ -1,6 +1,6 @@
 // GENERATED FILE — Phase 0 contract artifact (PRD §18.2).
 // Regenerated 2026-10-11 with generate_typescript_types against mlwkyhlzggqkkioxucxj
-// after migrations 00014-00027 (contact privacy, service dates, planner, month grid, pairings, publish + service leaders).
+// after migrations 00014-00028 (contact privacy, service dates, planner, month grid, pairings, publish + service leaders, song shortlist).
 // Regenerate + broadcast on any schema change (PRD §18.5.2).
 export type Json =
   | string
@@ -1202,6 +1202,69 @@ export type Database = {
             columns: ["service_id"]
             isOneToOne: false
             referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_song_shortlist: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          service_id: string
+          song_id: string
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          service_id: string
+          song_id: string
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          service_id?: string
+          song_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_song_shortlist_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "member_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_song_shortlist_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_song_shortlist_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_song_shortlist_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "song_stats"
+            referencedColumns: ["song_id"]
+          },
+          {
+            foreignKeyName: "service_song_shortlist_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
             referencedColumns: ["id"]
           },
         ]

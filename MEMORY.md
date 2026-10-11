@@ -283,3 +283,9 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Why:** Matt: "Currently just leads — we may export the month grid to show people"; "no confirmation just yet".
 - **Made by:** Matt (scope), Claude (design)
 - **Status:** Live
+
+## [2026-10-11] Leaders plan songs with the library's tools
+- **Decision:** The service page's planner (team leads, admins, and whoever leads that Sunday) gets a song finder built on the master library: same search, filters, sort and shared saved views, plus "Works with song N (key)" (same key, a 4th or 5th up, relative key — `closeKeys`), "Also on <date>" for songs used within 4 weeks either side, read-only song details (played keys, tags, notes, chart/audio links). A per-service shortlist (`service_song_shortlist`, 00028: "Considering", with notes) is visible only to that service's leader and planners; adding to the set moves a song off the shortlist, taking it out of the set puts it back. The set shows the key move between songs. Shared saved views are now readable by all active members.
+- **Why:** Matt: the set-picking tools were "not anywhere near as good as the master song list"; leads list songs they're considering and search for songs that work in the key.
+- **Made by:** Matt (need), Claude (design)
+- **Status:** Live

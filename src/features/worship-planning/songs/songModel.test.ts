@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   activeFilterCount,
+  closeKeys,
   diffImport,
+  keyMove,
   findDuplicates,
   matchesFilters,
   pairKey,
@@ -165,5 +167,30 @@ describe("tempoLine", () => {
   it("shows meter and click separately", () => {
     expect(tempoLine({ tempo_bpm: 70, time_signature: "6/8", click_signature: "3/8", is_swung: false, bpm_feel: null })).toBe("70 bpm · 6/8 · click 3/8");
     expect(tempoLine({ tempo_bpm: 74, time_signature: "4/4", click_signature: "4/8", is_swung: true, bpm_feel: null })).toBe("74 bpm · 4/4 · click 4/8 · swung");
+  });
+});
+
+describe("close keys and key moves", () => {
+  it("lists the keys that sit next to a key", () => {
+    expect(closeKeys("G")).toEqual(["G", "C", "D", "Em"]);
+    expect(closeKeys("Bb")).toEqual(["Bb", "Eb", "F", "Gm"]);
+    expect(closeKeys("Em")).toEqual(["Em", "Am", "Bm", "G"]);
+    expect(closeKeys("A#")).toEqual(["Bb", "Eb", "F", "Gm"]);
+  });
+  it("filters on close keys only when asked", () => {
+    const c = song({ title: "In C", default_key: "C" });
+    const g = song({ title: "In G", default_key: "G" });
+    const e = song({ title: "In E", default_key: "E" });
+    expect([c, g, e].filter((s) => matchesFilters(s, { keys: ["G"] }, TODAY)).map((s) => s.title)).toEqual(["In G"]);
+    expect([c, g, e].filter((s) => matchesFilters(s, { keys: ["G"], closeKeys: true }, TODAY)).map((s) => s.title)).toEqual(["In C", "In G"]);
+  });
+  it("describes how the key moves between songs", () => {
+    expect(keyMove("G", "G")).toBe("same key");
+    expect(keyMove("G", "C")).toBe("up a 4th");
+    expect(keyMove("G", "A")).toBe("up a tone");
+    expect(keyMove("A", "G")).toBe("down a tone");
+    expect(keyMove("G", "Em")).toBe("relative key");
+    expect(keyMove("F or Eb", "Bb")).toBe("up a 4th");
+    expect(keyMove(null, "G")).toBeNull();
   });
 });

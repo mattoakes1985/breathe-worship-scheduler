@@ -179,7 +179,7 @@ export default function ServiceDetail() {
         )}
       </section>
 
-      <section aria-label="Song set">
+      <section aria-label="Song set" className={canPlan ? "hidden print:block" : undefined}>
         <h2 className="flex items-center gap-2 font-display font-bold text-sm uppercase tracking-wide text-faint mb-2">
           <ListMusic size={14} /> Song set
         </h2>
@@ -219,7 +219,7 @@ export default function ServiceDetail() {
         )}
       </section>
 
-      <section aria-label="Running order">
+      <section aria-label="Running order" className={canPlan ? "hidden print:block" : undefined}>
         <h2 className="flex items-center gap-2 font-display font-bold text-sm uppercase tracking-wide text-faint mb-2">
           <Clock size={14} /> Running order {totalMinutes > 0 && <span className="normal-case">· ~{totalMinutes} min</span>}
         </h2>
@@ -246,14 +246,14 @@ export default function ServiceDetail() {
       </section>
 
       {canPlan && (
-        <>
+        <div className="print:hidden space-y-3">
           {!(isTeamLead || isAdmin) && (
             <p className="flex items-center gap-2 text-sm text-accent-strong font-semibold print:hidden">
-              <Mic2 size={16} /> You're leading this one — choose the songs and running order below.
+              <Mic2 size={16} /> You're leading this one — choose the songs and running order.
             </p>
           )}
-          <ServicePlanner serviceId={id!} />
-        </>
+          <ServicePlanner serviceId={id!} serviceDate={service.service_date} />
+        </div>
       )}
     </div>
   );

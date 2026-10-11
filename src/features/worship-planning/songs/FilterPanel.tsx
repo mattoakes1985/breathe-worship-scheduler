@@ -98,6 +98,12 @@ export default function FilterPanel({
             </button>
           ))}
         </div>
+        {!!filters.keys?.length && (
+          <label className="flex items-center gap-2 text-sm mt-2 min-h-[40px]">
+            <input type="checkbox" className="w-5 h-5" checked={!!filters.closeKeys} onChange={(e) => set("closeKeys", e.target.checked || undefined)} />
+            Include close keys <span className="text-faint">(a 4th or 5th up, relative minor/major)</span>
+          </label>
+        )}
       </Section>
 
       <Section title="Tempo">
