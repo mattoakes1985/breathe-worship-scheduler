@@ -301,3 +301,8 @@ Add a new entry whenever: (a) the PRD leaves something open and it gets resolved
 - **Decision:** Services are no longer pre-planned: the MS Forms import decides the month (`prepare_form_services`, 00030). Each date column is matched to an existing service (same time if the header has one, else time order) or created — Sunday at the template time uses the Sunday template, anything else is a one-off event with the same band roles; names and times come from the header ("Saturday 15th August - Baptisms 6pm"), editable before import; two events on one day are kept apart (answer keys `date#2`). Services in the month the form doesn't mention can be removed (archived) only if nothing is planned, chosen or published on them.
 - **Made by:** Matt
 - **Status:** Live. MS Forms automatic sync: options set out for Matt (needs his Microsoft 365 setup), not built.
+
+## [2026-10-11] Spreadsheet import stays manual; made tolerant of form changes
+- **Decision:** No automatic MS Forms link for now (Matt). The import tolerates: a reworded or missing "Name" question (guessed and flagged, or chosen by hand from a dropdown), title rows above the headers, extra or reordered columns, the responses on a later worksheet, semicolon/tab CSVs with a byte-order mark, dates as "Sunday 2nd August", "02/08", "2026-08-02" or a date-typed cell, a single "tick the Sundays you can make" question (MS Forms ";" lists: ticked = yes, answered but not ticked = no), more answer wordings (can't, away, if needed, not sure…), US-style timestamps. It warns when a header's weekday doesn't match its date. Anything unreadable is listed under "Worth checking" and left blank (= not available) rather than guessed.
+- **Made by:** Matt (manual upload), Claude (tolerance)
+- **Status:** Live

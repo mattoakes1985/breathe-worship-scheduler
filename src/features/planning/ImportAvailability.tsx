@@ -9,7 +9,7 @@ import { AlertTriangle, CalendarPlus, CheckCircle2, FileUp, UserPlus } from "luc
 import { supabase } from "@/lib/supabase/client";
 import { Badge, Card, Spinner } from "@/components/ui";
 import { formatDate, formatTime, monthRange } from "@/lib/format";
-import { interpretForm, matchColumnsToServices, matchName, readCsv, readXlsx, type InterpretedForm } from "./formImport";
+import { matchColumnsToServices, matchName, readForm, type InterpretedForm } from "./formImport";
 import { useInvalidatePlanner, usePlannerBase } from "./data";
 
 type Decision = { kind: "person"; personId: string } | { kind: "new"; name: string } | { kind: "skip" } | { kind: "undecided" };
@@ -66,14 +66,14 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
     },
   });
 
-  async function onFile(f: File) {
+  const [source, setSource] = useState<{ name: string; bytes?: Uint8Array; text?: string } | null>(null);
+  const [sheetInfo, setSheetInfo] = useState<{ sheet: number; sheets: number } | null>(null);
+
+  function interpret(src: { name: string; bytes?: Uint8Array; text?: string }, opts: { nameCol?: number } = {}) {
     setReadError(null);
     setResult(null);
-    setForm(null);
     try {
-      if (f.size > 5 * 1024 * 1024) throw new Error("That file is too large (over 5 MB).");
-      const grid = /\.csv$/i.test(f.name) ? readCsv(await f.text()) : readXlsx(new Uint8Array(await f.arrayBuffer()));
-      const parsed = interpretForm(grid);
+      const { form: parsed, sheet, sheets } = readForm(src, new Date(), opts);
       const people = base.data!.people;
       const d: Record<string, Decision> = {};
       const r: Record<string, boolean> = {};
@@ -87,8 +87,22 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
       setAllIn(Object.fromEntries(parsed.dates.map((x) => [x.key, x.allIn])));
       setEdits({});
       setRemoveExtra({});
-      setFileName(f.name.slice(0, 200));
+      setSheetInfo({ sheet, sheets });
       setForm(parsed);
+    } catch (e) {
+      setForm(null);
+      setReadError((e as Error).message);
+    }
+  }
+
+  async function onFile(f: File) {
+    setForm(null);
+    try {
+      if (f.size > 5 * 1024 * 1024) throw new Error("That file is too large (over 5 MB).");
+      const src = /\.csv$/i.test(f.name) ? { name: f.name, text: await f.text() } : { name: f.name, bytes: new Uint8Array(await f.arrayBuffer()) };
+      setSource(src);
+      setFileName(f.name.slice(0, 200));
+      interpret(src);
     } catch (e) {
       setReadError((e as Error).message);
     }
@@ -193,7 +207,22 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
           <FileUp size={16} /> Choose .xlsx or .csv
           <input type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="sr-only" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
         </label>
-        {fileName && form && <p className="text-xs text-faint mt-2">{fileName} · {form.entries.length} people</p>}
+        {fileName && form && (
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+            <span>{fileName}{sheetInfo && sheetInfo.sheets > 1 ? ` · sheet ${sheetInfo.sheet + 1} of ${sheetInfo.sheets}` : ""} · {form.entries.length} people · {form.dates.length} dates</span>
+            <label className="flex items-center gap-1.5">
+              Names from
+              <select
+                className={`input !min-h-[32px] !py-0 text-xs !w-auto max-w-[14rem] ${form.nameGuessed ? "!border-warning" : ""}`}
+                value={form.nameCol}
+                aria-label="Which column has people's names"
+                onChange={(e) => source && interpret(source, { nameCol: Number(e.target.value) })}
+              >
+                {form.headers.map((h, i) => (h ? <option key={i} value={i}>{h.slice(0, 40)}</option> : null))}
+              </select>
+            </label>
+          </div>
+        )}
         {readError && <p className="text-danger text-sm mt-2" role="alert">{readError}</p>}
       </Card>
 
@@ -341,7 +370,7 @@ export default function ImportAvailability({ onDone }: { onDone: (month: string)
 
           {form.problems.length > 0 && (
             <Card>
-              <h3 className="font-semibold text-sm text-warning flex items-center gap-2"><AlertTriangle size={16} /> Answers we couldn't read (left blank)</h3>
+              <h3 className="font-semibold text-sm text-warning flex items-center gap-2"><AlertTriangle size={16} /> Worth checking</h3>
               <ul className="mt-2 text-xs text-soft space-y-1">{form.problems.slice(0, 20).map((p, i) => <li key={i}>{p}</li>)}</ul>
             </Card>
           )}

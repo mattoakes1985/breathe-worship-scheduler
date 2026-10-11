@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { describeColumn, interpretForm, matchColumnsToServices, matchName, nameKey, normaliseAnswer, parseDateHeader, readCsv, readXlsx } from "./formImport";
+import { describeColumn, interpretForm, matchColumnsToServices, matchName, nameKey, normaliseAnswer, parseDateHeader, readCsv, readForm, readXlsx } from "./formImport";
 
 // Anonymised copy of the real August 2026 MS Forms export (names replaced
 // with "Person N", emails and requests blanked). Same layout, same answers.
@@ -53,8 +53,8 @@ describe("reading the MS Forms export", () => {
 
   it("rejects files that aren't a form export", () => {
     expect(() => readXlsx(new TextEncoder().encode("not a zip"))).toThrow(/Excel/);
-    expect(() => interpretForm(readCsv("a,b\n1,2"))).toThrow(/Name column/);
-    expect(() => interpretForm(readCsv("Name,Comments\nSam,hi"))).toThrow(/date columns/);
+    expect(() => interpretForm(readCsv("a,b\n1,2"))).toThrow(/names/);
+    expect(() => interpretForm(readCsv("Name,Comments\nSam,hi"))).toThrow(/dates/);
   });
 });
 
@@ -149,5 +149,67 @@ describe("the form decides the month's services", () => {
     const r = matchColumnsToServices([col("2026-12-06"), col("2026-12-06", { key: "k2", time: "11:15" }), col("2026-12-09")], services, defaults);
     expect(r.columns.map((c) => c.serviceId ?? c.create)).toEqual(["am", "late", { title: "Wednesday service", time: "11:15", timeGuessed: true, allIn: false }]);
     expect(r.extras).toEqual([]);
+  });
+});
+
+describe("still reads the form when it changes", () => {
+  const nov = new Date("2026-11-20T12:00:00Z");
+  it("finds the names when the question is reworded, and guesses (and says so) when it isn't called Name", () => {
+    expect(interpretForm(readCsv("Who are you?,Sunday 6th December\nSam,Yes"), nov).nameGuessed).toBe(false);
+    const f = interpretForm(readCsv("Id,Respondent,Sunday 6th December\n1,Sam Smith,Yes\n2,Jo Park,No"), nov);
+    expect(f.headers[f.nameCol]).toBe("Respondent");
+    expect(f.nameGuessed).toBe(true);
+    expect(f.problems[0]).toMatch(/names are taken from "Respondent"/);
+    // and a hand choice wins
+    expect(interpretForm(readCsv("Id,Respondent,Nickname,Sunday 6th December\n1,Sam Smith,Sammy,Yes"), nov, { nameCol: 2 }).entries[0].rawName).toBe("Sammy");
+  });
+  it("skips a title row above the headers, extra columns and reordered columns", () => {
+    const csv = ["December rota form,,,,", "Sunday 13th December,Phone,Name,How did you hear?,Sunday 6th December", "Yes,0123,Sam,Friend,No"].join("\n");
+    const f = interpretForm(readCsv(csv), nov);
+    expect(f.dates.map((d) => d.date)).toEqual(["2026-12-13", "2026-12-06"]);
+    expect(f.entries[0].answers).toEqual({ "2026-12-13": "yes", "2026-12-06": "no" });
+  });
+  it("reads semicolon CSVs with a byte-order mark", () => {
+    const f = interpretForm(readCsv("\uFEFFName;Sunday 6th December;Sunday 13th December\r\nSam;Yes;No\r\n"), nov);
+    expect(f.entries[0]).toMatchObject({ rawName: "Sam", answers: { "2026-12-06": "yes", "2026-12-13": "no" } });
+  });
+  it("reads dates written as numbers", () => {
+    expect(parseDateHeader("Sun 06/12")).toEqual({ day: 6, month: 12, year: null });
+    expect(parseDateHeader("6.12.26")).toEqual({ day: 6, month: 12, year: 2026 });
+    expect(parseDateHeader("2026-12-06")).toEqual({ day: 6, month: 12, year: 2026 });
+    expect(parseDateHeader("46362")).toEqual({ day: 6, month: 12, year: 2026 });
+    expect(parseDateHeader("Arrive 9.30")).toBeNull();
+  });
+  it("reads a 'tick the Sundays you can do' question", () => {
+    const csv = ["Name,Which Sundays can you make?", 'Sam,"Sunday 6th December;Sunday 20th December;"', "Jo,Sunday 13th December;", "Kit,"].join("\n");
+    const f = interpretForm(readCsv(csv), nov);
+    expect(f.dates.map((d) => d.date)).toEqual(["2026-12-06", "2026-12-13", "2026-12-20"]);
+    const by = Object.fromEntries(f.entries.map((e) => [e.rawName, e.answers]));
+    expect(by.Sam).toEqual({ "2026-12-06": "yes", "2026-12-13": "no", "2026-12-20": "yes" });
+    expect(by.Jo).toEqual({ "2026-12-06": "no", "2026-12-13": "yes", "2026-12-20": "no" });
+    expect(by.Kit).toEqual({ "2026-12-06": null, "2026-12-13": null, "2026-12-20": null });
+  });
+  it("understands more ways of answering", () => {
+    expect(["Can't", "cannot make it", "Away", "Not free"].map(normaliseAnswer)).toEqual(["no", "no", "no", "no"]);
+    expect(["Available", "Yes please", "Happy to", "✓"].map(normaliseAnswer)).toEqual(["yes", "yes", "yes", "yes"]);
+    expect(["If needed", "Not sure", "Probably"].map(normaliseAnswer)).toEqual(["maybe", "maybe", "maybe"]);
+    expect(["You can count me out", "Yesterday"].map(normaliseAnswer)).toEqual([null, null]);
+  });
+  it("warns when a header's weekday doesn't match its date", () => {
+    const f = interpretForm(readCsv("Name,Sunday 7th December\nSam,Yes"), nov);
+    expect(f.problems.join(" ")).toMatch(/7\/12\/2026 is a Monday —/);
+    expect(interpretForm(readCsv("Name,Sunday 24th December\nSam,Yes"), nov).problems.join(" ")).toMatch(/is a Thursday —/);
+  });
+  it("finds the responses on another worksheet, and reads US-style times", () => {
+    const bytes = new Uint8Array(readFileSync(new URL("./__fixtures__/two-sheets.xlsx", import.meta.url)));
+    const { form, sheet, sheets } = readForm({ name: "December.xlsx", bytes });
+    expect([sheet, sheets]).toEqual([1, 2]);
+    expect(form.headers[form.nameCol]).toBe("Your name please");
+    expect(form.dates.map((d) => d.date)).toEqual(["2026-12-06", "2026-12-13"]);
+    expect(form.entries.map((e) => [e.rawName, e.answers["2026-12-06"], e.answers["2026-12-13"], e.submittedAt])).toEqual([
+      ["Person A", "yes", "no", "2026-11-20 10:05"],
+      ["Person B", "maybe", "yes", "2026-11-21 10:05"],
+    ]);
+    expect(form.entries[1].request).toBe("Only one please");
   });
 });
